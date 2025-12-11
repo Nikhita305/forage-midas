@@ -707,12 +707,14 @@ async def root():
     return {"message": "Ambulance Emergency Traffic Alert System", "version": "4.0.0"}
 
 
-@api_router.get("/health")
-async def health():
-    return {"status": "healthy"}
-
-
 app.include_router(api_router)
+
+
+# Health check endpoint for Kubernetes (must be at root level, not under /api)
+@app.get("/health")
+async def health():
+    """Health check endpoint for deployment readiness/liveness probes."""
+    return {"status": "healthy"}
 
 app.add_middleware(
     CORSMiddleware,
