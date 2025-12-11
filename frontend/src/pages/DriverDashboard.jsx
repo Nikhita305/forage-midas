@@ -238,7 +238,8 @@ const DriverDashboard = () => {
       
       setAlertSent(true);
       setAlertStatus(null);
-      toast.success('🚨 Alert sent to all traffic police!', { duration: 4000 });
+      setGreenCorridorActive(true);
+      toast.success('🚨 Alert sent! Green corridor activating...', { duration: 4000 });
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to send alert');
     } finally {
