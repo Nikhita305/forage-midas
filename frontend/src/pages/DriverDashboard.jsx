@@ -61,6 +61,9 @@ const DriverDashboard = () => {
   const [alertSent, setAlertSent] = useState(false);
   const [alertStatus, setAlertStatus] = useState(null); // 'acknowledged', 'cleared'
   const [isSendingAlert, setIsSendingAlert] = useState(false);
+  const [selectedHospital, setSelectedHospital] = useState(null);
+  const [routeToHospital, setRouteToHospital] = useState([]);
+  const [routeTrafficLevel, setRouteTrafficLevel] = useState('medium'); // 'low', 'medium', 'high'
 
   useEffect(() => {
     fetchMyAmbulance();
