@@ -562,6 +562,23 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+async def startup_initialize_traffic_lights():
+    """Initialize traffic lights on startup if not already present."""
+    existing_lights = await db.traffic_lights.count_documents({})
+    if existing_lights == 0:
+        logger.info("Initializing traffic light system...")
+        lights = initialize_traffic_lights()
+        for light in lights:
+            doc = light.model_dump()
+            doc['last_state_change'] = doc['last_state_change'].isoformat()
+            doc['coordinates'] = {'lat': doc['coordinates']['lat'], 'lng': doc['coordinates']['lng']}
+            if doc.get('activated_at'):
+                doc['activated_at'] = doc['activated_at'].isoformat()
+            await db.traffic_lights.insert_one(doc)
+        logger.info(f"Initialized {len(lights)} traffic light junctions")
+
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
