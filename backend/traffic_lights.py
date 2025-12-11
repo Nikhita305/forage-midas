@@ -37,7 +37,7 @@ PREDICTION_BUFFER = 30
 def initialize_traffic_lights() -> List[TrafficLight]:
     """Initialize all traffic light junctions."""
     lights = []
-    for idx, junction in enumerate(NYC_TRAFFIC_JUNCTIONS):
+    for idx, junction in enumerate(KARNATAKA_TRAFFIC_JUNCTIONS):
         # Alternate initial states for realism
         initial_state = SignalState.GREEN if idx % 2 == 0 else SignalState.RED
         
