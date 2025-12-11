@@ -144,7 +144,8 @@ async def update_ambulance_location(update: AmbulanceLocationUpdate, current_use
     # Check if in severe traffic and auto-send alert
     if ambulance and ambulance.get('emergency_mode'):
         traffic_zones = await get_traffic_zones_near(update.location)
-        for zone in traffic_zones:
+        for zone_dict in traffic_zones:
+            zone = TrafficZone(**zone_dict)
             if zone.congestion_level == CongestionLevel.SEVERE:
                 # Auto-send high congestion alert
                 await send_auto_congestion_alert(ambulance, update.location, zone)
