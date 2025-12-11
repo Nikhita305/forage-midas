@@ -434,6 +434,125 @@ async def get_hospitals(current_user: dict = Depends(get_current_user)):
     return [Hospital(**h) for h in hospitals]
 
 
+# ============== TRAFFIC LIGHT ENDPOINTS ==============
+@api_router.get("/traffic-lights", response_model=List[TrafficLight])
+async def get_all_traffic_lights(current_user: dict = Depends(get_current_user)):
+    """Get all traffic lights with current states."""
+    lights = await db.traffic_lights.find({}, {"_id": 0}).to_list(100)
+    return [TrafficLight(**light) for light in lights]
+
+
+@api_router.post("/traffic-lights/update-corridor")
+async def update_green_corridor(current_user: dict = Depends(get_current_user)):
+    """Update green corridor based on ambulance position (called automatically)."""
+    # Get driver's ambulance
+    ambulance = await db.ambulances.find_one({"driver_id": current_user['sub']}, {"_id": 0})
+    if not ambulance or not ambulance.get('emergency_mode'):
+        return {"status": "no_emergency", "active_lights": [], "upcoming_lights": []}
+    
+    # Get all traffic lights
+    lights_data = await db.traffic_lights.find({}, {"_id": 0}).to_list(100)
+    lights = [TrafficLight(**light) for light in lights_data]
+    
+    # Activate green corridor
+    location = Coordinates(lat=ambulance['location']['lat'], lng=ambulance['location']['lng'])
+    corridor_status = activate_green_corridor(
+        ambulance['id'],
+        location,
+        ambulance.get('speed', 50),
+        lights
+    )
+    
+    # Update lights in database
+    for light in lights:
+        doc = light.model_dump()
+        doc['last_state_change'] = doc['last_state_change'].isoformat()
+        doc['coordinates'] = {'lat': doc['coordinates']['lat'], 'lng': doc['coordinates']['lng']}
+        if doc.get('activated_at'):
+            doc['activated_at'] = doc['activated_at'].isoformat()
+        await db.traffic_lights.update_one({"id": light.id}, {"$set": doc})
+    
+    # Check for deactivation of passed junctions
+    deactivated = check_and_deactivate_passed_junctions(
+        ambulance['id'],
+        location,
+        lights
+    )
+    
+    # Update deactivated lights
+    for light_id in deactivated:
+        light = next((l for l in lights if l.id == light_id), None)
+        if light:
+            doc = light.model_dump()
+            doc['last_state_change'] = doc['last_state_change'].isoformat()
+            doc['coordinates'] = {'lat': doc['coordinates']['lat'], 'lng': doc['coordinates']['lng']}
+            if doc.get('activated_at'):
+                doc['activated_at'] = doc['activated_at'].isoformat()
+            await db.traffic_lights.update_one({"id": light.id}, {"$set": doc})
+    
+    # Broadcast update to police
+    await manager.broadcast_to_police({
+        "type": "green_corridor_update",
+        "data": corridor_status.model_dump()
+    })
+    
+    return corridor_status.model_dump()
+
+
+@api_router.post("/traffic-lights/manual-control")
+async def manual_control_traffic_light(
+    control: TrafficLightControl,
+    current_user: dict = Depends(require_role(["police", "admin"]))
+):
+    """Manually control a traffic light (police/admin only)."""
+    light_data = await db.traffic_lights.find_one({"id": control.light_id}, {"_id": 0})
+    if not light_data:
+        raise HTTPException(status_code=404, detail="Traffic light not found")
+    
+    light = TrafficLight(**light_data)
+    manual_override_signal(light, control.state, control.duration_seconds)
+    
+    # Update in database
+    doc = light.model_dump()
+    doc['last_state_change'] = doc['last_state_change'].isoformat()
+    doc['coordinates'] = {'lat': doc['coordinates']['lat'], 'lng': doc['coordinates']['lng']}
+    if doc.get('activated_at'):
+        doc['activated_at'] = doc['activated_at'].isoformat()
+    await db.traffic_lights.update_one({"id": light.id}, {"$set": doc})
+    
+    # Broadcast to all users
+    await manager.broadcast_to_drivers({
+        "type": "traffic_light_update",
+        "data": light.model_dump()
+    })
+    await manager.broadcast_to_police({
+        "type": "traffic_light_update",
+        "data": light.model_dump()
+    })
+    
+    return {"status": "updated", "light": light.model_dump()}
+
+
+@api_router.get("/traffic-lights/corridor-status/{ambulance_id}", response_model=GreenCorridorStatus)
+async def get_corridor_status(ambulance_id: str, current_user: dict = Depends(get_current_user)):
+    """Get green corridor status for an ambulance."""
+    lights_data = await db.traffic_lights.find(
+        {"controlled_by_ambulance": ambulance_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    if not lights_data:
+        return GreenCorridorStatus(ambulance_id=ambulance_id, active_lights=[], upcoming_lights=[])
+    
+    active_ids = [light['id'] for light in lights_data]
+    return GreenCorridorStatus(
+        ambulance_id=ambulance_id,
+        active_lights=active_ids,
+        upcoming_lights=[],
+        eta_to_next_junction=None
+    )
+
+
 # ============== ADMIN ENDPOINTS ==============
 @api_router.get("/admin/users", response_model=List[User])
 async def get_users(current_user: dict = Depends(require_role(["admin"]))):
