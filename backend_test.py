@@ -259,8 +259,8 @@ class SmartAmbulanceAPITester:
         return success
 
 def main():
-    print("🚑 Smart Ambulance API Testing Suite")
-    print("=" * 50)
+    print("🚑 Smart Ambulance Routing System API Testing Suite")
+    print("=" * 60)
     
     tester = SmartAmbulanceAPITester()
     
@@ -270,7 +270,7 @@ def main():
         print("❌ Health check failed - API may be down")
         return 1
     
-    print("\n👥 Testing User Registration...")
+    print("\n👥 Testing User Registration (Driver & Admin only)...")
     if not tester.test_user_registration():
         print("⚠️  Registration failed, trying existing credentials...")
         if not tester.test_user_login():
@@ -280,32 +280,33 @@ def main():
     print("\n🔐 Testing Authentication...")
     tester.test_auth_endpoints()
     
-    print("\n🚑 Testing Ambulance Endpoints...")
+    print("\n🚑 Testing Ambulance Management...")
     tester.test_ambulance_endpoints()
     
     print("\n🏥 Testing Hospital Endpoints...")
     tester.test_hospital_endpoints()
     
-    print("\n🗺️  Testing Routing Endpoints...")
+    print("\n🗺️  Testing Routing & Navigation...")
     tester.test_routing_endpoints()
     
-    print("\n👑 Testing Admin Endpoints...")
+    print("\n🚗 Testing Trip Management...")
+    tester.test_trip_endpoints()
+    
+    print("\n📡 Testing V2X Signal Preemption...")
+    tester.test_v2x_endpoints()
+    
+    print("\n👑 Testing Admin Panel...")
     tester.test_admin_endpoints()
     
     print("\n🔒 Testing Role-Based Access Control...")
     tester.test_role_based_access()
     
-    print("\n📍 Testing Hospital Assignment...")
-    tester.test_assign_hospital()
-    
-    print("\n🚦 Testing Traffic Endpoints...")
+    print("\n🚦 Testing Traffic & Alert Systems...")
     tester.test_traffic_endpoints()
-    
-    print("\n🚨 Testing Alert Endpoints...")
     tester.test_alert_endpoints()
     
     # Print summary
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 60)
     print(f"📊 Test Results: {tester.tests_passed}/{tester.tests_run} passed")
     
     if tester.tests_passed == tester.tests_run:
