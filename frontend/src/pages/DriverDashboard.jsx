@@ -64,6 +64,9 @@ const DriverDashboard = () => {
   const [selectedHospital, setSelectedHospital] = useState(null);
   const [routeToHospital, setRouteToHospital] = useState([]);
   const [routeTrafficLevel, setRouteTrafficLevel] = useState('medium'); // 'low', 'medium', 'high'
+  const [trafficLights, setTrafficLights] = useState([]);
+  const [greenCorridorActive, setGreenCorridorActive] = useState(false);
+  const [activeJunctions, setActiveJunctions] = useState([]);
 
   useEffect(() => {
     fetchMyAmbulance();
