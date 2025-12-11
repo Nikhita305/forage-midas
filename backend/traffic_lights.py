@@ -231,12 +231,7 @@ def check_and_deactivate_passed_junctions(
     
     for light in all_lights:
         if light.controlled_by_ambulance == ambulance_id:
-            distance_km = haversine_distance(
-                ambulance_location.lat,
-                ambulance_location.lng,
-                light.coordinates.lat,
-                light.coordinates.lng
-            )
+            distance_km = haversine_distance(ambulance_location, light.coordinates)
             distance_m = distance_km * 1000
             
             # If ambulance is now far enough past the junction
