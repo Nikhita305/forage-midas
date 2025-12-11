@@ -8,11 +8,13 @@ class SmartAmbulanceAPITester:
         self.base_url = base_url
         self.token = None
         self.admin_token = None
-        self.dispatcher_token = None
         self.driver_token = None
         self.tests_run = 0
         self.tests_passed = 0
         self.test_results = []
+        self.ambulance_id = None
+        self.hospital_id = None
+        self.trip_id = None
 
     def log_test(self, name, success, details=""):
         """Log test result"""
