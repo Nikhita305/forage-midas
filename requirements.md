@@ -1,84 +1,78 @@
-# Smart Ambulance Routing & Hospital Finder System
+# Ambulance Emergency Traffic & Hospital Alert System
 
 ## Original Problem Statement
-Build a production-ready Emergency Vehicle Routing System with:
-- Ambulance Mobile App with real-time GPS tracking, Emergency Mode, Start/End Trip
-- Intelligent Routing Engine with traffic-aware routing, recalculation every 15 seconds
-- Hospital Finder with nearby hospitals ranked by ETA with specialties
-- Traffic Clearing Alerts when in emergency mode
-- Backend with JWT Auth (Driver, Admin roles only - NO dispatcher)
-- Trip logging with GPS history
-- V2X API endpoint for future traffic signal preemption
+Build a production-ready Emergency Traffic & Hospital Alert System with:
+- Ambulance App with GPS tracking, Emergency Mode that auto-sends alerts
+- Traffic congestion visualization on map
+- Manual alert button to send to traffic control
+- Hospital finder sorted by ETA with traffic-aware routing
+- Automatic alerts when entering severe congestion
+- Start/End Trip workflow
+- V2X API for future traffic light preemption
 
 ## Architecture Completed
 
 ### Backend (FastAPI + MongoDB)
-- **Auth System**: JWT-based authentication with 2 roles (Admin, Driver)
-- **Models**: Users, Ambulances, Hospitals, Trips, TrafficEvents, Alerts
-- **WebSocket**: Real-time GPS updates and traffic clearing alerts
-- **Routing Engine**: Traffic-aware routing with primary + backup routes
-- **V2X API**: Endpoint for future traffic signal preemption integration
+- **Auth**: JWT with Driver and Admin roles
+- **Models**: Users, Ambulances, Hospitals, Trips, TrafficAlerts, TrafficZones
+- **WebSocket**: Real-time driver updates and traffic alert broadcasting
+- **Routing Engine**: Traffic-aware routing with congestion levels
 
 ### Key Endpoints:
-- `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`
-- `POST /api/ambulance/{id}/claim`, `POST /api/ambulance/{id}/release`
-- `POST /api/ambulance/{id}/emergency` - Toggle emergency mode + broadcast alerts
-- `POST /api/ambulance/location` - GPS location updates
-- `GET /api/hospitals/nearby` - Hospitals ranked by ETA
-- `POST /api/route/to-hospital/{id}` - Calculate route with backup
-- `POST /api/trip/start`, `POST /api/trip/end` - Trip management
-- `GET /api/trip/current`, `GET /api/trips/history`
-- `POST /api/alerts/send` - Traffic clearing alerts
-- `POST /api/v2x/signal-preemption` - Future V2X integration
-- `POST /api/admin/seed-data` - Seed sample data
+- `POST /api/auth/register`, `POST /api/auth/login`
+- `POST /api/ambulance/{id}/emergency` - Toggle emergency mode (auto-sends alerts)
+- `POST /api/alerts/traffic` - Manual alert to traffic control
+- `POST /api/ambulance/location` - GPS updates with auto-congestion detection
+- `GET /api/hospitals/nearby` - Hospitals ranked by ETA with traffic consideration
+- `GET /api/route/optimal` - Optimal route with traffic zones
+- `POST /api/route/to-hospital/{id}` - Route with primary + alternate options
+- `GET /api/traffic/zones` - Traffic congestion zones
+- `POST /api/v2x/preemption` - Traffic light preemption API
+- `POST /api/trip/start`, `POST /api/trip/end`
 
 ### Frontend (React + Leaflet)
-- **Login Page**: Sign In / Register with Driver/Admin roles
 - **Driver Dashboard**:
-  - Live map with ambulance position and hospital markers
-  - Emergency Mode toggle with traffic alert broadcasting
-  - START TRIP / END TRIP buttons
-  - Ambulance claim/release
-  - Nearby hospitals ranked by ETA with specialties
-  - Route visualization with primary + backup routes
-  - Next turn instruction display
-  - Traffic warnings
-- **Admin Panel**: User management, fleet overview, hospital directory, trip logs
+  - Live map with traffic congestion zones (colored circles)
+  - Emergency Mode toggle with auto-alerts
+  - Manual "Send Alert" button for traffic assistance
+  - Hospital finder with ETA + congestion level
+  - Route visualization with primary + alternate routes
+  - Navigation info: ETA, distance, congestion level, traffic warnings
+  - Blocked roads display
+  - Switch to alternate route button
+  - Start/End Trip workflow
+- **Admin Panel**: User management, fleet overview, hospitals, trip logs
 
-### Key Features Implemented
-1. ✅ Real-time GPS tracking simulation
-2. ✅ Emergency Mode with traffic clearing alerts
-3. ✅ Traffic-aware routing with recalculation
-4. ✅ Primary + backup route options
-5. ✅ Hospital finder ranked by ETA
-6. ✅ Start/End Trip workflow
-7. ✅ Trip logging with GPS history
-8. ✅ WebSocket real-time updates
-9. ✅ V2X API endpoint (ready for integration)
-10. ✅ Traffic clearing alerts to civilian apps
+### Traffic Features
+1. ✅ Traffic congestion zones with severity levels (low/moderate/high/severe)
+2. ✅ Color-coded traffic visualization on map
+3. ✅ Traffic-aware ETA calculations
+4. ✅ Auto-alerts when entering severe congestion
+5. ✅ Manual alert button for traffic assistance
+6. ✅ Route suggestions avoiding congested areas
+7. ✅ Alternate route switching
+8. ✅ Blocked road notifications
+9. ✅ V2X API endpoint ready for traffic light preemption
 
-## Next Tasks / Enhancements
-
-### Phase 2 Features
-1. **Real Map API Integration**: Connect to Google Maps/Mapbox when API key available
-2. **Push Notifications**: Mobile push alerts for nearby vehicles
-3. **Civilian App**: App for nearby drivers to receive ambulance alerts
-4. **V2X Integration**: Connect to traffic management systems for signal preemption
-5. **Voice Navigation**: Audio turn-by-turn directions
-6. **Battery Optimization**: Efficient GPS polling modes
-
-### Technical Improvements
-1. Add rate limiting for API endpoints
-2. Implement caching for hospital/route data
-3. Add comprehensive error handling
-4. Set up database indexes
-5. Add unit and integration tests
+### Alert Types
+- `EMERGENCY_APPROACH` - When emergency mode activated
+- `HIGH_CONGESTION` - Auto-sent in severe traffic
+- `MANUAL_REQUEST` - Driver manually requests assistance
 
 ## Test Credentials
 - Admin: admin@test.com / admin123
-- Driver: driver2@test.com / driver123
+- Driver: emergency@test.com / emergency123
+
+## Next Tasks
+
+### Phase 2
+1. **Real Traffic API**: Connect to Google/HERE/Mapbox for live traffic data
+2. **Traffic Police Dashboard**: Add web app for traffic officers to see alerts
+3. **SMS/Push Notifications**: Add Twilio integration for traffic police alerts
+4. **V2X Integration**: Connect to traffic management systems
+5. **Voice Navigation**: Audio turn-by-turn directions
 
 ## Tech Stack
 - Backend: FastAPI, MongoDB, WebSockets, JWT
 - Frontend: React, Leaflet, Tailwind CSS, Shadcn/UI
-- Maps: OpenStreetMap tiles, Mock traffic-aware routing engine
+- Maps: OpenStreetMap tiles, Mock traffic zones
