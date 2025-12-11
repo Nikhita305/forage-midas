@@ -133,12 +133,24 @@ const DriverDashboard = () => {
     }
   }, [myAmbulance]);
 
+  const fetchTrafficLights = async () => {
+    try {
+      const response = await axios.get(`${API}/traffic-lights`);
+      setTrafficLights(response.data);
+    } catch (error) {
+      console.error('Failed to fetch traffic lights:', error);
+    }
+  };
+
   const fetchMyAmbulance = async () => {
     try {
       const response = await axios.get(`${API}/ambulances/my`);
       if (response.data) {
         setMyAmbulance(response.data);
         setCurrentLocation(response.data.location);
+        if (response.data.emergency_mode) {
+          setGreenCorridorActive(true);
+        }
       } else {
         fetchAvailableAmbulances();
         setShowAmbulanceSelect(true);
