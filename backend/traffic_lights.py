@@ -117,12 +117,7 @@ def detect_approaching_junctions(
     upcoming = []
     
     for light in all_lights:
-        distance_km = haversine_distance(
-            ambulance_location.lat,
-            ambulance_location.lng,
-            light.coordinates.lat,
-            light.coordinates.lng
-        )
+        distance_km = haversine_distance(ambulance_location, light.coordinates)
         distance_m = distance_km * 1000
         
         # Immediate activation zone (< 300m)
