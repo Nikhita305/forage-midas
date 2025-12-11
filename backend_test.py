@@ -163,20 +163,22 @@ class SmartAmbulanceAPITester:
 
     def test_routing_endpoints(self):
         """Test routing endpoints"""
-        if not self.token:
+        if not self.driver_token or not self.ambulance_id:
             return False
         
-        # First get ambulances to use one for routing
-        success, ambulances = self.run_test("Get Ambulances for Routing", "GET", "ambulances", 200, token=self.token)
+        # Test route calculation
+        route_data = {
+            "ambulance_id": self.ambulance_id,
+            "destination": {"lat": 40.7200, "lng": -74.0100},
+            "emergency": True
+        }
+        success, _ = self.run_test("Calculate Route", "POST", "route/calculate", 200, route_data, token=self.driver_token)
         
-        if success and ambulances:
-            ambulance_id = ambulances[0]['id']
-            route_data = {
-                "ambulance_id": ambulance_id,
-                "destination": {"lat": 40.7200, "lng": -74.0100},
-                "emergency": True
-            }
-            success, _ = self.run_test("Request Route", "POST", "route/request", 200, route_data, token=self.token)
+        # Test route to hospital (need hospital ID first)
+        success, hospitals = self.run_test("Get Hospitals for Route", "GET", "hospitals", 200, token=self.driver_token)
+        if success and hospitals:
+            self.hospital_id = hospitals[0]['id']
+            success, _ = self.run_test("Calculate Route to Hospital", "POST", f"route/to-hospital/{self.hospital_id}?ambulance_id={self.ambulance_id}", 200, token=self.driver_token)
         
         return success
 
