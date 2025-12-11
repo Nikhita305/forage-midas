@@ -239,10 +239,11 @@ class SmartAmbulanceAPITester:
 
     def test_traffic_endpoints(self):
         """Test traffic-related endpoints"""
-        if not self.token:
+        if not self.driver_token:
             return False
         
-        success, _ = self.run_test("Get Traffic Events", "GET", "traffic/events", 200, token=self.token)
+        # Test traffic zones
+        success, _ = self.run_test("Get Traffic Zones", "GET", "traffic/zones?lat=40.7128&lng=-74.0060", 200, token=self.driver_token)
         return success
 
     def test_alert_endpoints(self):
