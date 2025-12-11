@@ -175,12 +175,7 @@ def activate_green_corridor(
     if upcoming:
         closest_upcoming = min(
             upcoming,
-            key=lambda l: haversine_distance(
-                ambulance_location.lat,
-                ambulance_location.lng,
-                l.coordinates.lat,
-                l.coordinates.lng
-            )
+            key=lambda l: haversine_distance(ambulance_location, l.coordinates)
         )
         eta_to_next = calculate_eta_to_junction(
             ambulance_location,
