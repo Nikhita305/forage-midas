@@ -7,20 +7,18 @@ import uuid
 
 class UserRole(str, Enum):
     ADMIN = "admin"
-    DISPATCHER = "dispatcher"
     DRIVER = "driver"
 
 
 class AmbulanceStatus(str, Enum):
     AVAILABLE = "available"
-    ON_ROUTE = "on_route"
+    ON_TRIP = "on_trip"
     EMERGENCY = "emergency"
     OFFLINE = "offline"
 
 
 class TripStatus(str, Enum):
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
+    ACTIVE = "active"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
@@ -69,10 +67,10 @@ class Hospital(BaseModel):
     name: str
     coordinates: Coordinates
     phone: str
-    specialties: List[str]
-    availability: int = Field(default=10, description="Available beds")
+    specialties: List[str] = []
     address: str = ""
     eta_minutes: Optional[int] = None
+    distance_km: Optional[float] = None
 
 
 class Ambulance(BaseModel):
@@ -86,7 +84,6 @@ class Ambulance(BaseModel):
     location: Coordinates
     speed: float = 0
     heading: float = 0
-    assigned_hospital_id: Optional[str] = None
     current_trip_id: Optional[str] = None
     last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -106,6 +103,7 @@ class AmbulanceLocationUpdate(BaseModel):
 class RoutePoint(BaseModel):
     lat: float
     lng: float
+    instruction: str = ""
 
 
 class Route(BaseModel):
@@ -113,6 +111,8 @@ class Route(BaseModel):
     distance_km: float
     duration_minutes: int
     traffic_delay_minutes: int = 0
+    next_turn: str = ""
+    traffic_warnings: List[str] = []
 
 
 class RouteRequest(BaseModel):
@@ -123,8 +123,15 @@ class RouteRequest(BaseModel):
 
 class RouteResponse(BaseModel):
     primary_route: Route
-    backup_routes: List[Route] = []
-    recommended_hospital_id: Optional[str] = None
+    backup_route: Optional[Route] = None
+    destination_hospital: Optional[Hospital] = None
+
+
+class GPSPoint(BaseModel):
+    lat: float
+    lng: float
+    timestamp: datetime
+    speed: float = 0
 
 
 class Trip(BaseModel):
@@ -132,14 +139,18 @@ class Trip(BaseModel):
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     ambulance_id: str
-    driver_id: Optional[str] = None
+    driver_id: str
+    driver_name: str
+    destination_hospital_id: str
+    destination_hospital_name: str
     start_location: Coordinates
-    end_location: Optional[Coordinates] = None
-    assigned_hospital_id: Optional[str] = None
-    status: TripStatus = TripStatus.PENDING
+    end_location: Coordinates
     route: Optional[Route] = None
+    gps_history: List[GPSPoint] = []
+    status: TripStatus = TripStatus.ACTIVE
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None
+    traffic_conditions: str = "normal"
 
 
 class TrafficEvent(BaseModel):
@@ -159,6 +170,7 @@ class Alert(BaseModel):
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     ambulance_id: str
+    ambulance_call_sign: str
     message: str
     location: Coordinates
     radius_km: float = 1.0
@@ -171,16 +183,10 @@ class AlertSend(BaseModel):
     radius_km: float = 1.0
 
 
-class AssignHospital(BaseModel):
+class StartTripRequest(BaseModel):
     ambulance_id: str
     hospital_id: str
 
 
-class AuditLog(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    user_id: str
-    action: str
-    details: str = ""
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+class EndTripRequest(BaseModel):
+    trip_id: str
