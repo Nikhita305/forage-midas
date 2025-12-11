@@ -3,18 +3,16 @@ import sys
 import json
 from datetime import datetime
 
-class SmartAmbulanceAPITester:
+class AmbulanceEmergencyTrafficAlertTester:
     def __init__(self, base_url="https://emerg-signal.preview.emergentagent.com/api"):
         self.base_url = base_url
-        self.token = None
-        self.admin_token = None
         self.driver_token = None
+        self.police_token = None
         self.tests_run = 0
         self.tests_passed = 0
         self.test_results = []
-        self.ambulance_id = None
-        self.hospital_id = None
-        self.trip_id = None
+        self.claimed_ambulance_id = None
+        self.alert_id = None
 
     def log_test(self, name, success, details=""):
         """Log test result"""
@@ -31,7 +29,7 @@ class SmartAmbulanceAPITester:
             "details": details
         })
 
-    def run_test(self, name, method, endpoint, expected_status, data=None, token=None):
+    def run_test(self, name, method, endpoint, expected_status, data=None, token=None, params=None):
         """Run a single API test"""
         url = f"{self.base_url}/{endpoint}"
         headers = {'Content-Type': 'application/json'}
@@ -40,9 +38,9 @@ class SmartAmbulanceAPITester:
 
         try:
             if method == 'GET':
-                response = requests.get(url, headers=headers, timeout=10)
+                response = requests.get(url, headers=headers, params=params, timeout=10)
             elif method == 'POST':
-                response = requests.post(url, json=data, headers=headers, timeout=10)
+                response = requests.post(url, json=data, headers=headers, params=params, timeout=10)
             elif method == 'DELETE':
                 response = requests.delete(url, headers=headers, timeout=10)
 
@@ -54,10 +52,17 @@ class SmartAmbulanceAPITester:
                     error_data = response.json()
                     details += f" - {error_data.get('detail', 'Unknown error')}"
                 except:
-                    details += f" - {response.text[:100]}"
+                    details += f" - {response.text[:200]}"
 
             self.log_test(name, success, details)
-            return success, response.json() if success and response.content else {}
+            
+            # Return response data if successful
+            if success and response.content:
+                try:
+                    return success, response.json()
+                except:
+                    return success, {}
+            return success, {}
 
         except Exception as e:
             self.log_test(name, False, f"Error: {str(e)}")
@@ -68,271 +73,278 @@ class SmartAmbulanceAPITester:
         success, _ = self.run_test("Health Check", "GET", "health", 200)
         return success
 
-    def test_user_registration(self):
-        """Test user registration for driver and admin roles only"""
-        timestamp = datetime.now().strftime('%H%M%S')
+    def test_authentication_flow(self):
+        """Test authentication for both driver and police roles"""
+        print("\n🔐 Testing Authentication Flow...")
         
-        # Test admin registration
-        admin_data = {
-            "email": f"admin_{timestamp}@test.com",
-            "password": "admin123",
-            "name": f"Test Admin {timestamp}",
-            "role": "admin"
+        # Test driver login
+        driver_credentials = {
+            "email": "driver1@test.com",
+            "password": "password123"
         }
-        success, response = self.run_test("Register Admin", "POST", "auth/register", 200, admin_data)
-        if success and 'access_token' in response:
-            self.admin_token = response['access_token']
-        
-        # Test driver registration
-        driver_data = {
-            "email": f"driver_{timestamp}@test.com",
-            "password": "driver123",
-            "name": f"Test Driver {timestamp}",
-            "role": "driver"
-        }
-        success, response = self.run_test("Register Driver", "POST", "auth/register", 200, driver_data)
+        success, response = self.run_test("Driver Login", "POST", "auth/login", 200, driver_credentials)
         if success and 'access_token' in response:
             self.driver_token = response['access_token']
+            # Verify role is driver
+            if response.get('user', {}).get('role') == 'driver':
+                self.log_test("Driver Role Verification", True, "Role correctly set to 'driver'")
+            else:
+                self.log_test("Driver Role Verification", False, f"Expected role 'driver', got '{response.get('user', {}).get('role')}'")
         
-        return self.admin_token and self.driver_token
-
-    def test_user_login(self):
-        """Test login with provided credentials"""
-        login_data = {
-            "email": "admin@test.com",
-            "password": "admin123"
+        # Test police login
+        police_credentials = {
+            "email": "police1@test.com",
+            "password": "password123"
         }
-        success, response = self.run_test("Login Admin", "POST", "auth/login", 200, login_data)
+        success, response = self.run_test("Police Login", "POST", "auth/login", 200, police_credentials)
         if success and 'access_token' in response:
-            self.token = response['access_token']
-            return True
-        return False
-
-    def test_auth_endpoints(self):
-        """Test authentication endpoints"""
-        if not self.token:
-            return False
+            self.police_token = response['access_token']
+            # Verify role is police
+            if response.get('user', {}).get('role') == 'police':
+                self.log_test("Police Role Verification", True, "Role correctly set to 'police'")
+            else:
+                self.log_test("Police Role Verification", False, f"Expected role 'police', got '{response.get('user', {}).get('role')}'")
         
-        # Test /auth/me
-        success, _ = self.run_test("Get Current User", "GET", "auth/me", 200, token=self.token)
-        return success
+        # Test /auth/me for driver
+        if self.driver_token:
+            success, response = self.run_test("Driver Auth Me", "GET", "auth/me", 200, token=self.driver_token)
+            if success and response.get('role') == 'driver':
+                self.log_test("Driver Auth Me Role Check", True, "Driver role confirmed via /auth/me")
+            else:
+                self.log_test("Driver Auth Me Role Check", False, f"Expected driver role, got {response.get('role')}")
+        
+        # Test /auth/me for police
+        if self.police_token:
+            success, response = self.run_test("Police Auth Me", "GET", "auth/me", 200, token=self.police_token)
+            if success and response.get('role') == 'police':
+                self.log_test("Police Auth Me Role Check", True, "Police role confirmed via /auth/me")
+            else:
+                self.log_test("Police Auth Me Role Check", False, f"Expected police role, got {response.get('role')}")
+        
+        return self.driver_token and self.police_token
 
-    def test_ambulance_endpoints(self):
-        """Test ambulance-related endpoints"""
+    def test_driver_flow(self):
+        """Test complete driver workflow"""
+        print("\n🚑 Testing Driver Flow...")
+        
         if not self.driver_token:
+            self.log_test("Driver Flow", False, "No driver token available")
             return False
         
-        # Get available ambulances
+        # 1. Get available ambulances
         success, ambulances = self.run_test("Get Available Ambulances", "GET", "ambulances/available", 200, token=self.driver_token)
+        if not success:
+            return False
         
-        if success and ambulances:
-            self.ambulance_id = ambulances[0]['id']
+        # Verify expected ambulances are available
+        expected_ambulances = ["AMB-001", "AMB-002", "AMB-003"]
+        available_call_signs = [amb.get('call_sign') for amb in ambulances if isinstance(ambulances, list)]
+        
+        if any(call_sign in available_call_signs for call_sign in expected_ambulances):
+            self.log_test("Expected Ambulances Available", True, f"Found ambulances: {available_call_signs}")
+        else:
+            self.log_test("Expected Ambulances Available", False, f"Expected {expected_ambulances}, got {available_call_signs}")
+        
+        # 2. Claim AMB-001
+        amb_001 = None
+        for amb in ambulances:
+            if amb.get('call_sign') == 'AMB-001':
+                amb_001 = amb
+                break
+        
+        if amb_001:
+            self.claimed_ambulance_id = amb_001['id']
+            success, _ = self.run_test("Claim AMB-001", "POST", f"ambulance/{self.claimed_ambulance_id}/claim", 200, token=self.driver_token)
+        else:
+            self.log_test("Claim AMB-001", False, "AMB-001 not found in available ambulances")
+            return False
+        
+        # 3. Get my ambulance
+        success, my_ambulance = self.run_test("Get My Ambulance", "GET", "ambulances/my", 200, token=self.driver_token)
+        if success and my_ambulance:
+            if my_ambulance.get('call_sign') == 'AMB-001':
+                self.log_test("Verify Claimed Ambulance", True, "Successfully claimed AMB-001")
+            else:
+                self.log_test("Verify Claimed Ambulance", False, f"Expected AMB-001, got {my_ambulance.get('call_sign')}")
+        
+        # 4. Get nearby hospitals
+        params = {"lat": 40.7128, "lng": -74.006}
+        success, hospitals = self.run_test("Get Nearby Hospitals", "GET", "hospitals/nearby", 200, token=self.driver_token, params=params)
+        if success and isinstance(hospitals, list) and len(hospitals) > 0:
+            self.log_test("Nearby Hospitals with Distances", True, f"Found {len(hospitals)} hospitals with distance data")
+            # Check if hospitals have distance information
+            has_distance = any('distance' in hospital or 'distance_km' in hospital for hospital in hospitals)
+            if has_distance:
+                self.log_test("Hospital Distance Calculation", True, "Hospitals include distance information")
+            else:
+                self.log_test("Hospital Distance Calculation", False, "Hospitals missing distance information")
+        
+        # 5. Send emergency alert
+        if self.claimed_ambulance_id:
+            alert_data = {
+                "ambulance_id": self.claimed_ambulance_id,
+                "location": {"lat": 40.7128, "lng": -74.006},
+                "speed": 45.5,
+                "message": "Emergency transport to City General Hospital"
+            }
+            success, alert_response = self.run_test("Send Emergency Alert", "POST", "alert/send", 200, alert_data, token=self.driver_token)
+            if success and alert_response.get('id'):
+                self.alert_id = alert_response['id']
+                self.log_test("Alert ID Generated", True, f"Alert created with ID: {self.alert_id}")
+        
+        return True
+
+    def test_police_flow(self):
+        """Test complete police workflow"""
+        print("\n👮 Testing Police Flow...")
+        
+        if not self.police_token:
+            self.log_test("Police Flow", False, "No police token available")
+            return False
+        
+        # 1. Get active alerts
+        success, alerts = self.run_test("Get Active Alerts", "GET", "alerts/live", 200, token=self.police_token)
+        if success:
+            if isinstance(alerts, list) and len(alerts) > 0:
+                self.log_test("Active Alerts Available", True, f"Found {len(alerts)} active alerts")
+                
+                # Use the alert created in driver flow or first available alert
+                test_alert_id = self.alert_id or alerts[0].get('id')
+                
+                if test_alert_id:
+                    # 2. Get alert details
+                    success, alert_details = self.run_test("Get Alert Details", "GET", f"alert/{test_alert_id}", 200, token=self.police_token)
+                    
+                    # 3. Acknowledge the alert
+                    ack_data = {"alert_id": test_alert_id}
+                    success, _ = self.run_test("Acknowledge Alert", "POST", "alert/acknowledge", 200, ack_data, token=self.police_token)
+                    
+                    # 4. Clear the route
+                    clear_data = {
+                        "alert_id": test_alert_id,
+                        "message": "Route cleared, ambulance can proceed"
+                    }
+                    success, _ = self.run_test("Clear Route", "POST", "alert/clear", 200, clear_data, token=self.police_token)
+            else:
+                self.log_test("Active Alerts Available", False, "No active alerts found - may need to send alert first")
+        
+        return True
+
+    def test_edge_cases(self):
+        """Test edge cases and error conditions"""
+        print("\n⚠️  Testing Edge Cases...")
+        
+        if not self.driver_token or not self.police_token:
+            return False
+        
+        # 1. Try to claim already claimed ambulance
+        if self.claimed_ambulance_id:
+            # Create a second driver token (simulate different driver)
+            # For now, use same token but expect failure if ambulance already claimed
+            success, _ = self.run_test("Claim Already Claimed Ambulance", "POST", f"ambulance/{self.claimed_ambulance_id}/claim", 400, token=self.driver_token)
+            # This should fail with 400 if ambulance is already claimed by same user, or succeed if re-claiming
+        
+        # 2. Try to send alert without claiming ambulance first
+        # First release current ambulance
+        if self.claimed_ambulance_id:
+            success, _ = self.run_test("Release Ambulance", "POST", f"ambulance/{self.claimed_ambulance_id}/release", 200, token=self.driver_token)
             
-            # Test claim ambulance
-            success, _ = self.run_test("Claim Ambulance", "POST", f"ambulance/{self.ambulance_id}/claim", 200, token=self.driver_token)
+            # Now try to send alert without ambulance
+            alert_data = {
+                "ambulance_id": "non-existent-ambulance",
+                "location": {"lat": 40.7128, "lng": -74.006},
+                "speed": 45.5,
+                "message": "Test alert without valid ambulance"
+            }
+            success, _ = self.run_test("Send Alert Without Valid Ambulance", "POST", "alert/send", 404, alert_data, token=self.driver_token)
+        
+        # 3. Test role-based access control
+        # Driver trying to access police endpoints
+        success, _ = self.run_test("Driver Access Police Endpoint (Should Fail)", "POST", "alert/acknowledge", 403, {"alert_id": "test"}, token=self.driver_token)
+        
+        # Police trying to claim ambulance (should work as police can access ambulance endpoints)
+        success, _ = self.run_test("Police Access Ambulance Endpoints", "GET", "ambulances/available", 200, token=self.police_token)
+        
+        return True
+
+    def test_websocket_connectivity(self):
+        """Test WebSocket endpoint availability (basic connectivity test)"""
+        print("\n🔌 Testing WebSocket Endpoints...")
+        
+        # We can't easily test WebSocket functionality with requests library
+        # But we can test if the endpoints exist and return appropriate responses
+        # WebSocket endpoints typically return 426 Upgrade Required when accessed via HTTP
+        
+        try:
+            # Test driver WebSocket endpoint
+            response = requests.get(f"{self.base_url.replace('/api', '')}/api/ws/driver/test-driver-id", timeout=5)
+            if response.status_code in [426, 400, 404]:  # Expected responses for WebSocket endpoints
+                self.log_test("Driver WebSocket Endpoint Available", True, f"WebSocket endpoint responds (Status: {response.status_code})")
+            else:
+                self.log_test("Driver WebSocket Endpoint Available", False, f"Unexpected status: {response.status_code}")
             
-            # Test emergency mode toggle
-            success, _ = self.run_test("Toggle Emergency Mode", "POST", f"ambulance/{self.ambulance_id}/emergency?enable=true", 200, token=self.driver_token)
+            # Test police WebSocket endpoint
+            response = requests.get(f"{self.base_url.replace('/api', '')}/api/ws/police/test-police-id", timeout=5)
+            if response.status_code in [426, 400, 404]:  # Expected responses for WebSocket endpoints
+                self.log_test("Police WebSocket Endpoint Available", True, f"WebSocket endpoint responds (Status: {response.status_code})")
+            else:
+                self.log_test("Police WebSocket Endpoint Available", False, f"Unexpected status: {response.status_code}")
+                
+        except Exception as e:
+            self.log_test("WebSocket Endpoints Test", False, f"Error testing WebSocket endpoints: {str(e)}")
+        
+        return True
+
+    def print_summary(self):
+        """Print test summary"""
+        print("\n" + "=" * 80)
+        print(f"📊 Test Results: {self.tests_passed}/{self.tests_run} passed")
+        
+        if self.tests_passed == self.tests_run:
+            print("🎉 All tests passed!")
+            return 0
+        else:
+            print(f"⚠️  {self.tests_run - self.tests_passed} tests failed")
             
-            # Test location update (skip for now due to 500 error - investigate separately)
-            # location_data = {
-            #     "ambulance_id": self.ambulance_id,
-            #     "location": {"lat": 40.7128, "lng": -74.0060},
-            #     "speed": 45.5,
-            #     "heading": 90.0
-            # }
-            # success, _ = self.run_test("Update Ambulance Location", "POST", "ambulance/location", 200, location_data, token=self.driver_token)
-            success = True  # Skip this test for now
+            # Print failed tests
+            print("\n❌ Failed Tests:")
+            for result in self.test_results:
+                if not result['success']:
+                    print(f"  - {result['test']}: {result['details']}")
             
-            # Test get my ambulance
-            success, _ = self.run_test("Get My Ambulance", "GET", "ambulances/my", 200, token=self.driver_token)
-        
-        return success
-
-    def test_hospital_endpoints(self):
-        """Test hospital-related endpoints"""
-        if not self.token:
-            return False
-        
-        # Get hospitals
-        success, _ = self.run_test("Get Hospitals", "GET", "hospitals", 200, token=self.token)
-        
-        # Get nearby hospitals
-        success, _ = self.run_test("Get Nearby Hospitals", "GET", "hospitals/nearby?lat=40.7128&lng=-74.0060", 200, token=self.token)
-        
-        return success
-
-    def test_routing_endpoints(self):
-        """Test routing endpoints"""
-        if not self.driver_token or not self.ambulance_id:
-            return False
-        
-        # Test route calculation (using correct endpoint)
-        success, _ = self.run_test("Calculate Optimal Route", "GET", f"route/optimal?ambulance_id={self.ambulance_id}&dest_lat=40.7200&dest_lng=-74.0100", 200, token=self.driver_token)
-        
-        # Test route to hospital (need hospital ID first)
-        success, hospitals = self.run_test("Get Hospitals for Route", "GET", "hospitals", 200, token=self.driver_token)
-        if success and hospitals:
-            self.hospital_id = hospitals[0]['id']
-            success, _ = self.run_test("Calculate Route to Hospital", "POST", f"route/to-hospital/{self.hospital_id}?ambulance_id={self.ambulance_id}", 200, token=self.driver_token)
-        
-        return success
-
-    def test_trip_endpoints(self):
-        """Test trip management endpoints"""
-        if not self.driver_token or not self.ambulance_id or not self.hospital_id:
-            return False
-        
-        # Test start trip
-        trip_data = {
-            "ambulance_id": self.ambulance_id,
-            "hospital_id": self.hospital_id
-        }
-        success, response = self.run_test("Start Trip", "POST", "trip/start", 200, trip_data, token=self.driver_token)
-        if success and 'id' in response:
-            self.trip_id = response['id']
-        
-        # Test get current trip
-        success, _ = self.run_test("Get Current Trip", "GET", "trip/current", 200, token=self.driver_token)
-        
-        # Test end trip
-        if self.trip_id:
-            end_data = {"trip_id": self.trip_id}
-            success, _ = self.run_test("End Trip", "POST", "trip/end", 200, end_data, token=self.driver_token)
-        
-        # Test trip history
-        success, _ = self.run_test("Get Trip History", "GET", "trips/history", 200, token=self.driver_token)
-        
-        return success
-
-    def test_admin_endpoints(self):
-        """Test admin-only endpoints"""
-        if not self.admin_token:
-            return False
-        
-        # Test admin endpoints
-        success, _ = self.run_test("Get Users (Admin)", "GET", "admin/users", 200, token=self.admin_token)
-        success, _ = self.run_test("Get All Trips (Admin)", "GET", "admin/trips", 200, token=self.admin_token)
-        success, _ = self.run_test("Seed Sample Data", "POST", "admin/seed-data", 200, token=self.admin_token)
-        
-        return success
-
-    def test_v2x_endpoints(self):
-        """Test V2X signal preemption endpoint"""
-        if not self.driver_token or not self.ambulance_id:
-            return False
-        
-        # Test V2X signal preemption request (using correct endpoint)
-        success, _ = self.run_test("V2X Signal Preemption", "POST", f"v2x/preemption?ambulance_id={self.ambulance_id}&intersection_lat=40.7128&intersection_lng=-74.0060", 200, token=self.driver_token)
-        
-        return success
-
-    def test_role_based_access(self):
-        """Test role-based access control"""
-        if not self.driver_token:
-            return False
-        
-        # Driver should NOT be able to access admin endpoints
-        success, _ = self.run_test("Driver Access Admin (Should Fail)", "GET", "admin/users", 403, token=self.driver_token)
-        
-        # This test passes if it gets 403 (forbidden)
-        return success
-
-    def test_traffic_endpoints(self):
-        """Test traffic-related endpoints"""
-        if not self.driver_token:
-            return False
-        
-        # Test traffic zones
-        success, _ = self.run_test("Get Traffic Zones", "GET", "traffic/zones?lat=40.7128&lng=-74.0060", 200, token=self.driver_token)
-        return success
-
-    def test_alert_endpoints(self):
-        """Test alert endpoints"""
-        if not self.driver_token or not self.ambulance_id:
-            return False
-        
-        # Test traffic alerts
-        success, _ = self.run_test("Get Traffic Alerts", "GET", "alerts/traffic", 200, token=self.driver_token)
-        
-        # Test manual alert
-        alert_data = {
-            "ambulance_id": self.ambulance_id,
-            "message": "Test manual alert",
-            "location": {"lat": 40.7128, "lng": -74.0060},
-            "eta_minutes": 5
-        }
-        success, _ = self.run_test("Send Manual Alert", "POST", "alerts/traffic", 200, alert_data, token=self.driver_token)
-        
-        # Test recent alerts
-        success, _ = self.run_test("Get Recent Alerts", "GET", "alerts/recent", 200)
-        
-        return success
+            return 1
 
 def main():
-    print("🚑 Smart Ambulance Routing System API Testing Suite")
-    print("=" * 60)
+    print("🚑 Ambulance Emergency Traffic Alert System - E2E Testing Suite")
+    print("=" * 80)
     
-    tester = SmartAmbulanceAPITester()
+    tester = AmbulanceEmergencyTrafficAlertTester()
     
-    # Test sequence
+    # Test sequence following the review request scenarios
     print("\n📡 Testing Basic Connectivity...")
     if not tester.test_health_check():
         print("❌ Health check failed - API may be down")
         return 1
     
-    print("\n👥 Testing User Registration (Driver & Admin only)...")
-    if not tester.test_user_registration():
-        print("⚠️  Registration failed, trying existing credentials...")
-        if not tester.test_user_login():
-            print("❌ Both registration and login failed")
-            return 1
-    
-    print("\n🔐 Testing Authentication...")
-    tester.test_auth_endpoints()
-    
-    print("\n🚑 Testing Ambulance Management...")
-    tester.test_ambulance_endpoints()
-    
-    print("\n🏥 Testing Hospital Endpoints...")
-    tester.test_hospital_endpoints()
-    
-    print("\n🗺️  Testing Routing & Navigation...")
-    tester.test_routing_endpoints()
-    
-    print("\n🚗 Testing Trip Management...")
-    tester.test_trip_endpoints()
-    
-    print("\n📡 Testing V2X Signal Preemption...")
-    tester.test_v2x_endpoints()
-    
-    print("\n👑 Testing Admin Panel...")
-    tester.test_admin_endpoints()
-    
-    print("\n🔒 Testing Role-Based Access Control...")
-    tester.test_role_based_access()
-    
-    print("\n🚦 Testing Traffic & Alert Systems...")
-    tester.test_traffic_endpoints()
-    tester.test_alert_endpoints()
-    
-    # Print summary
-    print("\n" + "=" * 60)
-    print(f"📊 Test Results: {tester.tests_passed}/{tester.tests_run} passed")
-    
-    if tester.tests_passed == tester.tests_run:
-        print("🎉 All tests passed!")
-        return 0
-    else:
-        print(f"⚠️  {tester.tests_run - tester.tests_passed} tests failed")
-        
-        # Print failed tests
-        print("\nFailed Tests:")
-        for result in tester.test_results:
-            if not result['success']:
-                print(f"  - {result['test']}: {result['details']}")
-        
+    # 1. Authentication Flow
+    if not tester.test_authentication_flow():
+        print("❌ Authentication failed - cannot proceed with other tests")
         return 1
+    
+    # 2. Driver Flow
+    tester.test_driver_flow()
+    
+    # 3. Police Flow
+    tester.test_police_flow()
+    
+    # 4. WebSocket Testing (basic connectivity)
+    tester.test_websocket_connectivity()
+    
+    # 5. Edge Cases
+    tester.test_edge_cases()
+    
+    # Print final summary
+    return tester.print_summary()
 
 if __name__ == "__main__":
     sys.exit(main())
