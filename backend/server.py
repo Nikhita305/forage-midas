@@ -13,7 +13,8 @@ from models import (
     User, UserCreate, UserLogin, UserInDB, Token, UserRole,
     Hospital, Ambulance, AmbulanceStatus, AmbulanceLocationUpdate, AmbulanceLocation,
     TrafficAlert, AlertStatus, Coordinates,
-    SendAlertRequest, AcknowledgeAlertRequest, ClearRouteRequest
+    SendAlertRequest, AcknowledgeAlertRequest, ClearRouteRequest,
+    TrafficLight, SignalState, TrafficLightMode, TrafficLightControl, GreenCorridorStatus
 )
 from auth import (
     get_password_hash, verify_password, create_access_token,
@@ -21,6 +22,10 @@ from auth import (
 )
 from routing import haversine_distance, rank_hospitals_by_eta, calculate_distance_to_traffic_point, get_direction_of_travel
 from websocket_manager import manager
+from traffic_lights import (
+    initialize_traffic_lights, activate_green_corridor,
+    check_and_deactivate_passed_junctions, manual_override_signal
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
