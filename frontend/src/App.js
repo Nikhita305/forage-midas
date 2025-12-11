@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { WebSocketProvider } from "./context/WebSocketContext";
 import Login from "./pages/Login";
 import DriverDashboard from "./pages/DriverDashboard";
+import PoliceDashboard from "./pages/PoliceDashboard";
 import AdminPanel from "./pages/AdminPanel";
 
 // Protected Route Component
@@ -25,16 +26,21 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     // Redirect to appropriate dashboard based on role
-    if (user.role === 'admin') {
-      return <Navigate to="/admin" replace />;
+    switch (user.role) {
+      case 'police':
+        return <Navigate to="/police" replace />;
+      case 'admin':
+        return <Navigate to="/admin" replace />;
+      case 'driver':
+      default:
+        return <Navigate to="/driver" replace />;
     }
-    return <Navigate to="/driver" replace />;
   }
   
   return <WebSocketProvider>{children}</WebSocketProvider>;
 };
 
-// Public Route - redirects to dashboard if logged in
+// Public Route
 const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
   
@@ -47,10 +53,15 @@ const PublicRoute = ({ children }) => {
   }
   
   if (user) {
-    if (user.role === 'admin') {
-      return <Navigate to="/admin" replace />;
+    switch (user.role) {
+      case 'police':
+        return <Navigate to="/police" replace />;
+      case 'admin':
+        return <Navigate to="/admin" replace />;
+      case 'driver':
+      default:
+        return <Navigate to="/driver" replace />;
     }
-    return <Navigate to="/driver" replace />;
   }
   
   return children;
@@ -65,12 +76,21 @@ function AppRoutes() {
         </PublicRoute>
       } />
       
+      {/* Ambulance Driver Dashboard */}
       <Route path="/driver" element={
         <ProtectedRoute allowedRoles={['driver']}>
           <DriverDashboard />
         </ProtectedRoute>
       } />
       
+      {/* Traffic Police Dashboard */}
+      <Route path="/police" element={
+        <ProtectedRoute allowedRoles={['police']}>
+          <PoliceDashboard />
+        </ProtectedRoute>
+      } />
+      
+      {/* Admin Panel */}
       <Route path="/admin" element={
         <ProtectedRoute allowedRoles={['admin']}>
           <AdminPanel />
