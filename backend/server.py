@@ -85,7 +85,12 @@ async def get_ambulances(current_user: dict = Depends(get_current_user)):
 @api_router.get("/ambulances/available", response_model=List[Ambulance])
 async def get_available_ambulances(current_user: dict = Depends(get_current_user)):
     ambulances = await db.ambulances.find(
-        {"$or": [{"driver_id": None}, {"driver_id": ""}], "status": "available"}, 
+        {
+            "$and": [
+                {"$or": [{"driver_id": None}, {"driver_id": ""}, {"driver_id": {"$exists": False}}]},
+                {"status": "available"}
+            ]
+        }, 
         {"_id": 0}
     ).to_list(100)
     return [Ambulance(**a) for a in ambulances]
