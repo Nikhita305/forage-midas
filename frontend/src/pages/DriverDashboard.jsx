@@ -315,6 +315,21 @@ const DriverDashboard = () => {
               </Marker>
             )}
             
+            {/* Route to selected hospital */}
+            {routeToHospital.length > 0 && (
+              <Polyline
+                positions={routeToHospital}
+                color={
+                  routeTrafficLevel === 'low' ? '#10b981' : 
+                  routeTrafficLevel === 'medium' ? '#f59e0b' : 
+                  '#ef4444'
+                }
+                weight={6}
+                opacity={0.8}
+                dashArray={routeTrafficLevel === 'high' ? '10, 10' : undefined}
+              />
+            )}
+
             {/* Hospital markers */}
             {nearbyHospitals.map(hospital => (
               <Marker 
