@@ -418,6 +418,82 @@ const DriverDashboard = () => {
               </Card>
             </div>
           )}
+
+          {/* Route Traffic Info Card */}
+          {selectedHospital && routeToHospital.length > 0 && (
+            <div className={`absolute ${alertSent ? 'top-52' : 'top-28'} left-4 z-[1000]`}>
+              <Card className={`w-72 ${
+                routeTrafficLevel === 'low' ? 'border-green-500 bg-green-500/10' : 
+                routeTrafficLevel === 'medium' ? 'border-amber-500 bg-amber-500/10' : 
+                'border-red-500 bg-red-500/10'
+              }`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <RouteIcon className={`w-5 h-5 ${
+                      routeTrafficLevel === 'low' ? 'text-green-400' : 
+                      routeTrafficLevel === 'medium' ? 'text-amber-400' : 
+                      'text-red-400'
+                    }`} />
+                    <span className="font-semibold text-zinc-100">
+                      Route to {selectedHospital.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={`w-3 h-3 rounded-full ${
+                      routeTrafficLevel === 'low' ? 'bg-green-500' : 
+                      routeTrafficLevel === 'medium' ? 'bg-amber-500' : 
+                      'bg-red-500 animate-pulse'
+                    }`}></div>
+                    <span className={`text-sm font-medium ${
+                      routeTrafficLevel === 'low' ? 'text-green-400' : 
+                      routeTrafficLevel === 'medium' ? 'text-amber-400' : 
+                      'text-red-400'
+                    }`}>
+                      {routeTrafficLevel === 'low' ? '🟢 Low Traffic' : 
+                       routeTrafficLevel === 'medium' ? '🟡 Moderate Traffic' : 
+                       '🔴 High Traffic'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400">
+                    {routeTrafficLevel === 'low' 
+                      ? 'Clear route ahead. Estimated smooth journey.'
+                      : routeTrafficLevel === 'medium'
+                      ? 'Moderate congestion expected on route.'
+                      : 'Heavy traffic detected. Consider sending alert.'}
+                  </p>
+                  <div className="mt-2 pt-2 border-t border-zinc-700 flex items-center justify-between text-xs">
+                    <span className="text-zinc-400">Distance: {selectedHospital.distance_km} km</span>
+                    <span className="text-zinc-400">ETA: {selectedHospital.eta_minutes} min</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Traffic Legend */}
+          {selectedHospital && (
+            <div className="absolute bottom-4 left-4 z-[1000]">
+              <Card className="bg-zinc-900/90 border-zinc-700 backdrop-blur">
+                <CardContent className="p-3">
+                  <p className="text-xs font-semibold text-zinc-300 mb-2">Traffic Legend</p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="w-4 h-1 bg-green-500 rounded"></div>
+                      <span className="text-zinc-400">Low Traffic</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="w-4 h-1 bg-amber-500 rounded"></div>
+                      <span className="text-zinc-400">Moderate Traffic</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="w-4 h-1 bg-red-500 rounded" style={{backgroundImage: 'repeating-linear-gradient(90deg, #ef4444 0px, #ef4444 4px, transparent 4px, transparent 8px)'}}></div>
+                      <span className="text-zinc-400">High Traffic</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
 
         {/* Right sidebar - Hospitals */}
