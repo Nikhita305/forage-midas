@@ -221,8 +221,8 @@ class SmartAmbulanceAPITester:
         if not self.driver_token or not self.ambulance_id:
             return False
         
-        # Test V2X signal preemption request
-        success, _ = self.run_test("V2X Signal Preemption", "POST", f"v2x/signal-preemption?ambulance_id={self.ambulance_id}&intersection_lat=40.7128&intersection_lng=-74.0060", 200, token=self.driver_token)
+        # Test V2X signal preemption request (using correct endpoint)
+        success, _ = self.run_test("V2X Signal Preemption", "POST", f"v2x/preemption?ambulance_id={self.ambulance_id}&intersection_lat=40.7128&intersection_lng=-74.0060", 200, token=self.driver_token)
         
         return success
 
