@@ -182,6 +182,33 @@ class SmartAmbulanceAPITester:
         
         return success
 
+    def test_trip_endpoints(self):
+        """Test trip management endpoints"""
+        if not self.driver_token or not self.ambulance_id or not self.hospital_id:
+            return False
+        
+        # Test start trip
+        trip_data = {
+            "ambulance_id": self.ambulance_id,
+            "hospital_id": self.hospital_id
+        }
+        success, response = self.run_test("Start Trip", "POST", "trip/start", 200, trip_data, token=self.driver_token)
+        if success and 'id' in response:
+            self.trip_id = response['id']
+        
+        # Test get current trip
+        success, _ = self.run_test("Get Current Trip", "GET", "trip/current", 200, token=self.driver_token)
+        
+        # Test end trip
+        if self.trip_id:
+            end_data = {"trip_id": self.trip_id}
+            success, _ = self.run_test("End Trip", "POST", "trip/end", 200, end_data, token=self.driver_token)
+        
+        # Test trip history
+        success, _ = self.run_test("Get Trip History", "GET", "trips/history", 200, token=self.driver_token)
+        
+        return success
+
     def test_admin_endpoints(self):
         """Test admin-only endpoints"""
         if not self.admin_token:
@@ -189,8 +216,8 @@ class SmartAmbulanceAPITester:
         
         # Test admin endpoints
         success, _ = self.run_test("Get Users (Admin)", "GET", "admin/users", 200, token=self.admin_token)
-        success, _ = self.run_test("Get Audit Logs (Admin)", "GET", "admin/audit-logs", 200, token=self.admin_token)
-        success, _ = self.run_test("Seed Simulation Data", "POST", "simulation/seed", 200, token=self.admin_token)
+        success, _ = self.run_test("Get All Trips (Admin)", "GET", "admin/trips", 200, token=self.admin_token)
+        success, _ = self.run_test("Seed Sample Data", "POST", "admin/seed-data", 200, token=self.admin_token)
         
         return success
 
