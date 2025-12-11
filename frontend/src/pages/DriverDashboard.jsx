@@ -444,9 +444,23 @@ const DriverDashboard = () => {
             <ScrollArea className="flex-1">
               <div className="p-3 space-y-2">
                 {nearbyHospitals.slice(0, 5).map(hospital => (
-                  <Card key={hospital.id} className="bg-zinc-800 border-zinc-700" data-testid={`hospital-${hospital.id}`}>
+                  <Card 
+                    key={hospital.id} 
+                    className={`cursor-pointer transition-all ${
+                      selectedHospital?.id === hospital.id 
+                        ? 'bg-blue-900/30 border-blue-500 shadow-lg shadow-blue-500/20' 
+                        : 'bg-zinc-800 border-zinc-700 hover:border-zinc-600'
+                    }`}
+                    data-testid={`hospital-${hospital.id}`}
+                    onClick={() => selectHospital(hospital)}
+                  >
                     <CardContent className="p-3">
-                      <h4 className="font-medium text-zinc-100 text-sm mb-1">{hospital.name}</h4>
+                      <div className="flex items-start justify-between mb-1">
+                        <h4 className="font-medium text-zinc-100 text-sm flex-1">{hospital.name}</h4>
+                        {selectedHospital?.id === hospital.id && (
+                          <RouteIcon className="w-4 h-4 text-blue-400 flex-shrink-0 ml-2" />
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-1 mb-2">
                         {hospital.specialties?.slice(0, 2).map(spec => (
                           <Badge key={spec} variant="secondary" className="bg-zinc-700 text-zinc-300 text-xs">
@@ -469,7 +483,10 @@ const DriverDashboard = () => {
                           size="sm" 
                           variant="ghost"
                           className="h-6 px-2 text-blue-400 hover:text-blue-300"
-                          onClick={() => window.open(`tel:${hospital.phone}`)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`tel:${hospital.phone}`);
+                          }}
                         >
                           <Phone className="w-3 h-3" />
                         </Button>
