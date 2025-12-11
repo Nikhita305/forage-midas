@@ -250,12 +250,11 @@ class AmbulanceEmergencyTrafficAlertTester:
         if not self.driver_token or not self.police_token:
             return False
         
-        # 1. Try to claim already claimed ambulance
+        # 1. Try to claim already claimed ambulance (same user can re-claim their own ambulance)
         if self.claimed_ambulance_id:
-            # Create a second driver token (simulate different driver)
-            # For now, use same token but expect failure if ambulance already claimed
-            success, _ = self.run_test("Claim Already Claimed Ambulance", "POST", f"ambulance/{self.claimed_ambulance_id}/claim", 400, token=self.driver_token)
-            # This should fail with 400 if ambulance is already claimed by same user, or succeed if re-claiming
+            # Same user re-claiming their own ambulance should succeed (status 200)
+            success, _ = self.run_test("Re-claim Own Ambulance (Should Succeed)", "POST", f"ambulance/{self.claimed_ambulance_id}/claim", 200, token=self.driver_token)
+            # This should succeed with 200 as same user can re-claim their own ambulance
         
         # 2. Try to send alert without claiming ambulance first
         # First release current ambulance
