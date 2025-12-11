@@ -7,23 +7,23 @@ import math
 from models import TrafficLight, SignalState, TrafficLightMode, Coordinates, GreenCorridorStatus
 from routing import haversine_distance
 
-# Predefined traffic junctions in NYC area
-NYC_TRAFFIC_JUNCTIONS = [
-    {"name": "Times Square Junction", "lat": 40.7580, "lng": -73.9855},
-    {"name": "Herald Square", "lat": 40.7505, "lng": -73.9882},
-    {"name": "Union Square", "lat": 40.7359, "lng": -73.9911},
-    {"name": "Madison Square", "lat": 40.7423, "lng": -73.9880},
-    {"name": "Washington Square", "lat": 40.7308, "lng": -73.9973},
-    {"name": "Columbus Circle", "lat": 40.7681, "lng": -73.9819},
-    {"name": "Grand Central", "lat": 40.7527, "lng": -73.9772},
-    {"name": "Penn Station", "lat": 40.7505, "lng": -73.9934},
-    {"name": "Chelsea Junction", "lat": 40.7465, "lng": -74.0014},
-    {"name": "Greenwich Village", "lat": 40.7336, "lng": -74.0027},
-    {"name": "Lower Manhattan", "lat": 40.7074, "lng": -74.0113},
-    {"name": "Brooklyn Bridge", "lat": 40.7061, "lng": -73.9969},
-    {"name": "Williamsburg Bridge", "lat": 40.7134, "lng": -73.9728},
-    {"name": "East Village", "lat": 40.7265, "lng": -73.9815},
-    {"name": "SoHo Junction", "lat": 40.7233, "lng": -74.0030},
+# Predefined traffic junctions in Karnataka, India (Bangalore focus)
+KARNATAKA_TRAFFIC_JUNCTIONS = [
+    {"name": "Silk Board Junction", "lat": 12.9173, "lng": 77.6226},
+    {"name": "Marathahalli Junction", "lat": 12.9591, "lng": 77.6974},
+    {"name": "KR Puram Junction", "lat": 13.0052, "lng": 77.6950},
+    {"name": "Whitefield Main Road", "lat": 12.9698, "lng": 77.7499},
+    {"name": "Electronic City Toll", "lat": 12.8456, "lng": 77.6603},
+    {"name": "Bannerghatta Road Junction", "lat": 12.8996, "lng": 77.5977},
+    {"name": "Jayanagar 4th Block", "lat": 12.9250, "lng": 77.5838},
+    {"name": "MG Road Metro", "lat": 12.9756, "lng": 77.6065},
+    {"name": "Koramangala 6th Block", "lat": 12.9352, "lng": 77.6245},
+    {"name": "HSR Layout Junction", "lat": 12.9121, "lng": 77.6446},
+    {"name": "Indiranagar 100 Feet Road", "lat": 12.9719, "lng": 77.6412},
+    {"name": "Yeshwanthpur Circle", "lat": 13.0280, "lng": 77.5385},
+    {"name": "Hebbal Flyover", "lat": 13.0358, "lng": 77.5970},
+    {"name": "Mysore Road Satellite Town", "lat": 12.9539, "lng": 77.5399},
+    {"name": "Kengeri Junction", "lat": 12.9077, "lng": 77.4854},
 ]
 
 # Detection radius for green corridor activation (meters)
