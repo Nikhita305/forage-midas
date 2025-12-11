@@ -351,9 +351,53 @@ const DriverDashboard = () => {
                 <Popup>
                   <strong>{myAmbulance.call_sign}</strong>
                   <br />Driver: {user?.name}
+                  {greenCorridorActive && <><br /><span style={{color: '#10b981', fontWeight: 'bold'}}>🟢 Green Corridor Active</span></>}
                 </Popup>
               </Marker>
             )}
+
+            {/* Detection radius circle (300m) when green corridor is active */}
+            {greenCorridorActive && myAmbulance && (
+              <Circle
+                center={[currentLocation.lat, currentLocation.lng]}
+                radius={300}
+                pathOptions={{
+                  color: '#10b981',
+                  fillColor: '#10b981',
+                  fillOpacity: 0.1,
+                  weight: 2,
+                  dashArray: '5, 10'
+                }}
+              />
+            )}
+
+            {/* Traffic light markers */}
+            {trafficLights.map(light => (
+              <Marker
+                key={light.id}
+                position={[light.coordinates.lat, light.coordinates.lng]}
+                icon={createTrafficLightIcon(light.current_state)}
+              >
+                <Popup>
+                  <div className="text-sm">
+                    <strong>{light.name}</strong>
+                    <br />
+                    <span style={{
+                      color: light.current_state === 'green' ? '#10b981' : 
+                             light.current_state === 'yellow' ? '#f59e0b' : '#ef4444',
+                      fontWeight: 'bold'
+                    }}>
+                      {light.current_state.toUpperCase()}
+                    </span>
+                    <br />
+                    Mode: {light.mode}
+                    {light.controlled_by_ambulance === myAmbulance?.id && (
+                      <><br /><span style={{color: '#10b981'}}>🚑 Controlled by you</span></>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
             
             {/* Route to selected hospital */}
             {routeToHospital.length > 0 && (
