@@ -92,7 +92,7 @@ const DriverDashboard = () => {
     }
   }, [currentLocation.lat, currentLocation.lng]);
 
-  // Handle status updates from police
+  // Handle status updates from police and traffic light updates
   useEffect(() => {
     if (lastMessage) {
       if (lastMessage.type === 'alert_acknowledged') {
@@ -101,7 +101,17 @@ const DriverDashboard = () => {
       } else if (lastMessage.type === 'route_cleared') {
         setAlertStatus('cleared');
         setAlertSent(false);
+        setGreenCorridorActive(false);
         toast.success(`🛣️ Route cleared by ${lastMessage.data.cleared_by}: ${lastMessage.data.message}`);
+      } else if (lastMessage.type === 'traffic_light_update') {
+        // Update specific traffic light
+        setTrafficLights(prev => 
+          prev.map(light => 
+            light.id === lastMessage.data.id ? lastMessage.data : light
+          )
+        );
+      } else if (lastMessage.type === 'green_corridor_update') {
+        setActiveJunctions(lastMessage.data.active_lights || []);
       }
     }
   }, [lastMessage]);
