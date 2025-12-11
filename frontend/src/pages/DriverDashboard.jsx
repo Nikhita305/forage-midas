@@ -38,6 +38,19 @@ const hospitalIcon = L.divIcon({
   iconAnchor: [16, 16],
 });
 
+// Traffic light icons (green, yellow, red)
+const createTrafficLightIcon = (state) => {
+  const color = state === 'green' ? '#10b981' : state === 'yellow' ? '#f59e0b' : '#ef4444';
+  const pulseClass = state === 'green' ? 'animate-pulse' : '';
+  
+  return L.divIcon({
+    className: 'custom-traffic-light-icon',
+    html: `<div style="background: ${color}; border-radius: 50%; width: 24px; height: 24px; border: 3px solid white; box-shadow: 0 0 ${state === 'green' ? '15px' : '8px'} ${color}80; ${state === 'green' ? 'animation: pulse 2s infinite;' : ''}"></div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+};
+
 // Map updater
 const MapUpdater = ({ center }) => {
   const map = useMap();
