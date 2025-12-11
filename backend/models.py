@@ -23,6 +23,20 @@ class TripStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+class CongestionLevel(str, Enum):
+    LOW = "low"
+    MODERATE = "moderate"
+    HIGH = "high"
+    SEVERE = "severe"
+
+
+class AlertType(str, Enum):
+    EMERGENCY_APPROACH = "emergency_approach"
+    HIGH_CONGESTION = "high_congestion"
+    ROUTE_BLOCKED = "route_blocked"
+    MANUAL_REQUEST = "manual_request"
+
+
 class Coordinates(BaseModel):
     lat: float
     lng: float
@@ -73,6 +87,17 @@ class Hospital(BaseModel):
     distance_km: Optional[float] = None
 
 
+class TrafficZone(BaseModel):
+    """Traffic congestion zone on the map."""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    location: Coordinates
+    radius_km: float = 0.5
+    congestion_level: CongestionLevel = CongestionLevel.LOW
+    description: str = ""
+    incident_type: Optional[str] = None  # accident, construction, event, etc.
+    blocked: bool = False
+
+
 class Ambulance(BaseModel):
     model_config = ConfigDict(extra="ignore")
     
@@ -85,6 +110,7 @@ class Ambulance(BaseModel):
     speed: float = 0
     heading: float = 0
     current_trip_id: Optional[str] = None
+    emergency_mode: bool = False
     last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -104,6 +130,7 @@ class RoutePoint(BaseModel):
     lat: float
     lng: float
     instruction: str = ""
+    congestion: CongestionLevel = CongestionLevel.LOW
 
 
 class Route(BaseModel):
@@ -111,8 +138,10 @@ class Route(BaseModel):
     distance_km: float
     duration_minutes: int
     traffic_delay_minutes: int = 0
+    congestion_level: CongestionLevel = CongestionLevel.LOW
     next_turn: str = ""
     traffic_warnings: List[str] = []
+    blocked_roads: List[str] = []
 
 
 class RouteRequest(BaseModel):
@@ -123,8 +152,9 @@ class RouteRequest(BaseModel):
 
 class RouteResponse(BaseModel):
     primary_route: Route
-    backup_route: Optional[Route] = None
+    alternate_route: Optional[Route] = None
     destination_hospital: Optional[Hospital] = None
+    traffic_zones: List[TrafficZone] = []
 
 
 class GPSPoint(BaseModel):
@@ -150,37 +180,35 @@ class Trip(BaseModel):
     status: TripStatus = TripStatus.ACTIVE
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None
-    traffic_conditions: str = "normal"
+    congestion_level: CongestionLevel = CongestionLevel.LOW
+    alerts_sent: int = 0
 
 
-class TrafficEvent(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    event_type: str  # accident, congestion, road_closure
-    location: Coordinates
-    severity: int = Field(default=1, ge=1, le=5)
-    description: str = ""
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    resolved: bool = False
-
-
-class Alert(BaseModel):
+class TrafficAlert(BaseModel):
+    """Alert sent to traffic authorities."""
     model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     ambulance_id: str
     ambulance_call_sign: str
+    driver_name: str
+    alert_type: AlertType
     message: str
     location: Coordinates
-    radius_km: float = 1.0
+    speed: float = 0
+    direction: str = ""
+    eta_minutes: Optional[int] = None
+    destination_hospital: Optional[str] = None
+    congestion_level: CongestionLevel = CongestionLevel.LOW
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    acknowledged: bool = False
 
 
-class AlertSend(BaseModel):
+class ManualAlertRequest(BaseModel):
     ambulance_id: str
+    message: str = "Requesting traffic assistance - please clear path"
     location: Coordinates
-    radius_km: float = 1.0
+    eta_minutes: Optional[int] = None
 
 
 class StartTripRequest(BaseModel):
