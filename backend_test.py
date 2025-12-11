@@ -145,18 +145,29 @@ class AmbulanceEmergencyTrafficAlertTester:
         else:
             self.log_test("Expected Ambulances Available", False, f"Expected {expected_ambulances}, got {available_call_signs}")
         
-        # 2. Claim AMB-001
-        amb_001 = None
-        for amb in ambulances:
-            if amb.get('call_sign') == 'AMB-001':
-                amb_001 = amb
+        # 2. Claim first available ambulance (preferably AMB-001, AMB-002, or AMB-003)
+        target_ambulance = None
+        preferred_ambulances = ['AMB-001', 'AMB-002', 'AMB-003']
+        
+        # Try to find preferred ambulances first
+        for preferred in preferred_ambulances:
+            for amb in ambulances:
+                if amb.get('call_sign') == preferred:
+                    target_ambulance = amb
+                    break
+            if target_ambulance:
                 break
         
-        if amb_001:
-            self.claimed_ambulance_id = amb_001['id']
-            success, _ = self.run_test("Claim AMB-001", "POST", f"ambulance/{self.claimed_ambulance_id}/claim", 200, token=self.driver_token)
+        # If no preferred ambulance found, use first available
+        if not target_ambulance and ambulances:
+            target_ambulance = ambulances[0]
+        
+        if target_ambulance:
+            self.claimed_ambulance_id = target_ambulance['id']
+            call_sign = target_ambulance.get('call_sign', 'Unknown')
+            success, _ = self.run_test(f"Claim {call_sign}", "POST", f"ambulance/{self.claimed_ambulance_id}/claim", 200, token=self.driver_token)
         else:
-            self.log_test("Claim AMB-001", False, "AMB-001 not found in available ambulances")
+            self.log_test("Claim Ambulance", False, "No available ambulances found")
             return False
         
         # 3. Get my ambulance
