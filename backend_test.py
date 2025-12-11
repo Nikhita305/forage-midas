@@ -173,10 +173,12 @@ class AmbulanceEmergencyTrafficAlertTester:
         # 3. Get my ambulance
         success, my_ambulance = self.run_test("Get My Ambulance", "GET", "ambulances/my", 200, token=self.driver_token)
         if success and my_ambulance:
-            if my_ambulance.get('call_sign') == 'AMB-001':
-                self.log_test("Verify Claimed Ambulance", True, "Successfully claimed AMB-001")
+            claimed_call_sign = my_ambulance.get('call_sign')
+            expected_call_sign = target_ambulance.get('call_sign') if target_ambulance else 'Unknown'
+            if claimed_call_sign == expected_call_sign:
+                self.log_test("Verify Claimed Ambulance", True, f"Successfully claimed {claimed_call_sign}")
             else:
-                self.log_test("Verify Claimed Ambulance", False, f"Expected AMB-001, got {my_ambulance.get('call_sign')}")
+                self.log_test("Verify Claimed Ambulance", False, f"Expected {expected_call_sign}, got {claimed_call_sign}")
         
         # 4. Get nearby hospitals
         params = {"lat": 40.7128, "lng": -74.006}
