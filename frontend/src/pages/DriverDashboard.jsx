@@ -69,7 +69,7 @@ const DriverDashboard = () => {
   const [myAmbulance, setMyAmbulance] = useState(null);
   const [availableAmbulances, setAvailableAmbulances] = useState([]);
   const [nearbyHospitals, setNearbyHospitals] = useState([]);
-  const [currentLocation, setCurrentLocation] = useState({ lat: 40.7128, lng: -74.0060 });
+  const [currentLocation, setCurrentLocation] = useState({ lat: 12.9716, lng: 77.5946 }); // Bangalore, Karnataka
   const [showAmbulanceSelect, setShowAmbulanceSelect] = useState(false);
   const [alertSent, setAlertSent] = useState(false);
   const [alertStatus, setAlertStatus] = useState(null); // 'acknowledged', 'cleared'
