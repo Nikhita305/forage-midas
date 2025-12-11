@@ -11,19 +11,15 @@ import json
 
 from models import (
     User, UserCreate, UserLogin, UserInDB, Token, UserRole,
-    Hospital, Ambulance, AmbulanceCreate, AmbulanceLocationUpdate, AmbulanceStatus,
-    Trip, TripStatus, TrafficAlert, AlertType, TrafficZone, CongestionLevel,
-    RouteRequest, RouteResponse, Coordinates, StartTripRequest, EndTripRequest, 
-    GPSPoint, ManualAlertRequest
+    Hospital, Ambulance, AmbulanceStatus, AmbulanceLocationUpdate, AmbulanceLocation,
+    TrafficAlert, AlertStatus, Coordinates,
+    SendAlertRequest, AcknowledgeAlertRequest, ClearRouteRequest
 )
 from auth import (
     get_password_hash, verify_password, create_access_token,
     get_current_user, require_role
 )
-from routing import (
-    compute_route, compute_alternate_route, rank_hospitals_by_eta, 
-    haversine_distance, generate_mock_traffic_zones, get_congestion_level
-)
+from routing import haversine_distance, rank_hospitals_by_eta, calculate_distance_to_traffic_point, get_direction_of_travel
 from websocket_manager import manager
 
 ROOT_DIR = Path(__file__).parent
@@ -33,16 +29,29 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-app = FastAPI(title="Ambulance Emergency Traffic & Hospital Alert System")
+app = FastAPI(title="Ambulance Emergency Traffic Alert System")
 api_router = APIRouter(prefix="/api")
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 # ============== AUTH ENDPOINTS ==============
+@api_router.post("/auth/login", response_model=Token)
+async def login(credentials: UserLogin):
+    """Login for both ambulance drivers and traffic police."""
+    user_doc = await db.users.find_one({"email": credentials.email}, {"_id": 0})
+    if not user_doc or not verify_password(credentials.password, user_doc['hashed_password']):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    user = User(id=user_doc['id'], email=user_doc['email'], name=user_doc['name'], role=user_doc['role'])
+    token = create_access_token({"sub": user.id, "email": user.email, "role": user.role, "name": user.name})
+    return Token(access_token=token, user=user)
+
+
 @api_router.post("/auth/register", response_model=Token)
 async def register(user_data: UserCreate):
+    """Register new user (driver or police)."""
     existing = await db.users.find_one({"email": user_data.email}, {"_id": 0})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -58,17 +67,6 @@ async def register(user_data: UserCreate):
     return Token(access_token=token, user=user)
 
 
-@api_router.post("/auth/login", response_model=Token)
-async def login(credentials: UserLogin):
-    user_doc = await db.users.find_one({"email": credentials.email}, {"_id": 0})
-    if not user_doc or not verify_password(credentials.password, user_doc['hashed_password']):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    user = User(id=user_doc['id'], email=user_doc['email'], name=user_doc['name'], role=user_doc['role'])
-    token = create_access_token({"sub": user.id, "email": user.email, "role": user.role, "name": user.name})
-    return Token(access_token=token, user=user)
-
-
 @api_router.get("/auth/me", response_model=User)
 async def get_me(current_user: dict = Depends(get_current_user)):
     user_doc = await db.users.find_one({"id": current_user['sub']}, {"_id": 0, "hashed_password": 0})
@@ -77,7 +75,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     return User(**user_doc)
 
 
-# ============== AMBULANCE ENDPOINTS ==============
+# ============== AMBULANCE DRIVER ENDPOINTS ==============
 @api_router.get("/ambulances", response_model=List[Ambulance])
 async def get_ambulances(current_user: dict = Depends(get_current_user)):
     ambulances = await db.ambulances.find({}, {"_id": 0}).to_list(100)
@@ -101,59 +99,6 @@ async def get_my_ambulance(current_user: dict = Depends(get_current_user)):
     return None
 
 
-@api_router.post("/ambulances", response_model=Ambulance)
-async def create_ambulance(ambulance_data: AmbulanceCreate, current_user: dict = Depends(require_role(["admin"]))):
-    ambulance = Ambulance(call_sign=ambulance_data.call_sign, location=ambulance_data.location)
-    doc = ambulance.model_dump()
-    doc['last_updated'] = doc['last_updated'].isoformat()
-    doc['location'] = {'lat': doc['location']['lat'], 'lng': doc['location']['lng']}
-    await db.ambulances.insert_one(doc)
-    return ambulance
-
-
-@api_router.post("/ambulance/location")
-async def update_ambulance_location(update: AmbulanceLocationUpdate, current_user: dict = Depends(get_current_user)):
-    """Update ambulance GPS location - high frequency during trips."""
-    result = await db.ambulances.update_one(
-        {"id": update.ambulance_id},
-        {"$set": {
-            "location": {"lat": update.location.lat, "lng": update.location.lng},
-            "speed": update.speed,
-            "heading": update.heading,
-            "last_updated": datetime.now(timezone.utc).isoformat()
-        }}
-    )
-    
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Ambulance not found")
-    
-    # Update trip GPS history
-    ambulance = await db.ambulances.find_one({"id": update.ambulance_id}, {"_id": 0})
-    if ambulance and ambulance.get('current_trip_id'):
-        gps_point = {
-            "lat": update.location.lat,
-            "lng": update.location.lng,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "speed": update.speed
-        }
-        await db.trips.update_one(
-            {"id": ambulance['current_trip_id']},
-            {"$push": {"gps_history": gps_point}}
-        )
-    
-    # Check if in severe traffic and auto-send alert
-    if ambulance and ambulance.get('emergency_mode'):
-        traffic_zones = await get_traffic_zones_near(update.location)
-        for zone_dict in traffic_zones:
-            zone = TrafficZone(**zone_dict)
-            if zone.congestion_level == CongestionLevel.SEVERE:
-                # Auto-send high congestion alert
-                await send_auto_congestion_alert(ambulance, update.location, zone)
-                break
-    
-    return {"status": "updated", "location": {"lat": update.location.lat, "lng": update.location.lng}}
-
-
 @api_router.post("/ambulance/{ambulance_id}/claim")
 async def claim_ambulance(ambulance_id: str, current_user: dict = Depends(get_current_user)):
     ambulance = await db.ambulances.find_one({"id": ambulance_id}, {"_id": 0})
@@ -162,10 +107,6 @@ async def claim_ambulance(ambulance_id: str, current_user: dict = Depends(get_cu
     
     if ambulance.get('driver_id') and ambulance['driver_id'] != current_user['sub']:
         raise HTTPException(status_code=400, detail="Ambulance already assigned")
-    
-    existing = await db.ambulances.find_one({"driver_id": current_user['sub']}, {"_id": 0})
-    if existing and existing['id'] != ambulance_id:
-        raise HTTPException(status_code=400, detail="You already have an ambulance")
     
     await db.ambulances.update_one(
         {"id": ambulance_id},
@@ -188,9 +129,6 @@ async def release_ambulance(ambulance_id: str, current_user: dict = Depends(get_
     if ambulance.get('driver_id') != current_user['sub']:
         raise HTTPException(status_code=403, detail="Not your ambulance")
     
-    if ambulance.get('current_trip_id'):
-        raise HTTPException(status_code=400, detail="Cannot release during active trip")
-    
     await db.ambulances.update_one(
         {"id": ambulance_id},
         {"$set": {
@@ -201,9 +139,68 @@ async def release_ambulance(ambulance_id: str, current_user: dict = Depends(get_
     return {"status": "released"}
 
 
+@api_router.get("/ambulance/location")
+async def get_ambulance_location(ambulance_id: str, current_user: dict = Depends(get_current_user)):
+    """Get current ambulance location."""
+    ambulance = await db.ambulances.find_one({"id": ambulance_id}, {"_id": 0})
+    if not ambulance:
+        raise HTTPException(status_code=404, detail="Ambulance not found")
+    
+    return {
+        "ambulance_id": ambulance['id'],
+        "call_sign": ambulance['call_sign'],
+        "location": ambulance['location'],
+        "speed": ambulance.get('speed', 0),
+        "status": ambulance['status'],
+        "last_updated": ambulance.get('last_updated')
+    }
+
+
+@api_router.post("/ambulance/location")
+async def update_ambulance_location(update: AmbulanceLocationUpdate, current_user: dict = Depends(get_current_user)):
+    """Update ambulance GPS location."""
+    result = await db.ambulances.update_one(
+        {"id": update.ambulance_id},
+        {"$set": {
+            "location": {"lat": update.location.lat, "lng": update.location.lng},
+            "speed": update.speed,
+            "heading": update.heading,
+            "last_updated": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Ambulance not found")
+    
+    # Store location history
+    location_record = AmbulanceLocation(
+        ambulance_id=update.ambulance_id,
+        lat=update.location.lat,
+        lng=update.location.lng,
+        speed=update.speed
+    )
+    doc = location_record.model_dump()
+    doc['time'] = doc['time'].isoformat()
+    await db.ambulance_locations.insert_one(doc)
+    
+    # Broadcast to police if ambulance has active alert
+    ambulance = await db.ambulances.find_one({"id": update.ambulance_id}, {"_id": 0})
+    if ambulance and ambulance.get('emergency_mode'):
+        await manager.send_ambulance_location_update({
+            "ambulance_id": update.ambulance_id,
+            "call_sign": ambulance['call_sign'],
+            "driver_name": ambulance.get('driver_name', 'Unknown'),
+            "location": {"lat": update.location.lat, "lng": update.location.lng},
+            "speed": update.speed,
+            "direction": get_direction_of_travel(update.speed, update.heading)
+        })
+    
+    return {"status": "updated"}
+
+
 @api_router.post("/ambulance/{ambulance_id}/emergency")
 async def toggle_emergency_mode(ambulance_id: str, enable: bool = True, current_user: dict = Depends(get_current_user)):
-    """Toggle emergency mode - when ON, begin sending alerts."""
+    """Toggle emergency mode."""
     ambulance = await db.ambulances.find_one({"id": ambulance_id}, {"_id": 0})
     if not ambulance:
         raise HTTPException(status_code=404, detail="Ambulance not found")
@@ -211,60 +208,25 @@ async def toggle_emergency_mode(ambulance_id: str, enable: bool = True, current_
     if ambulance.get('driver_id') != current_user['sub']:
         raise HTTPException(status_code=403, detail="Not your ambulance")
     
-    new_status = AmbulanceStatus.EMERGENCY if enable else AmbulanceStatus.AVAILABLE
-    if ambulance.get('current_trip_id'):
-        new_status = AmbulanceStatus.EMERGENCY if enable else AmbulanceStatus.ON_TRIP
-    
     await db.ambulances.update_one(
         {"id": ambulance_id},
         {"$set": {
-            "status": new_status.value,
+            "status": AmbulanceStatus.EMERGENCY.value if enable else AmbulanceStatus.AVAILABLE.value,
             "emergency_mode": enable,
             "last_updated": datetime.now(timezone.utc).isoformat()
         }}
     )
     
-    alert_sent = False
-    if enable:
-        # Send emergency approach alert
-        alert = TrafficAlert(
-            ambulance_id=ambulance_id,
-            ambulance_call_sign=ambulance['call_sign'],
-            driver_name=current_user['name'],
-            alert_type=AlertType.EMERGENCY_APPROACH,
-            message="🚨 Ambulance approaching — clear path immediately!",
-            location=Coordinates(**ambulance['location']),
-            speed=ambulance.get('speed', 0),
-            direction="en route"
-        )
-        
-        doc = alert.model_dump()
-        doc['created_at'] = doc['created_at'].isoformat()
-        doc['location'] = {'lat': doc['location']['lat'], 'lng': doc['location']['lng']}
-        await db.traffic_alerts.insert_one(doc)
-        
-        # Broadcast via WebSocket
-        recipients = await manager.broadcast_traffic_alert({
-            "alert_id": alert.id,
-            "type": "EMERGENCY_APPROACH",
-            "ambulance_call_sign": ambulance['call_sign'],
-            "driver_name": current_user['name'],
-            "message": alert.message,
-            "location": {"lat": ambulance['location']['lat'], "lng": ambulance['location']['lng']},
-            "speed": ambulance.get('speed', 0)
-        })
-        alert_sent = True
-    
-    return {
-        "status": "emergency_enabled" if enable else "emergency_disabled",
-        "alert_sent": alert_sent
-    }
+    return {"status": "emergency_enabled" if enable else "emergency_disabled"}
 
 
-# ============== TRAFFIC ALERT ENDPOINTS ==============
-@api_router.post("/alerts/traffic", response_model=TrafficAlert)
-async def send_manual_traffic_alert(request: ManualAlertRequest, current_user: dict = Depends(get_current_user)):
-    """Manually send alert to traffic police/control center."""
+# ============== ALERT ENDPOINTS ==============
+@api_router.post("/alert/send", response_model=TrafficAlert)
+async def send_traffic_alert(request: SendAlertRequest, current_user: dict = Depends(get_current_user)):
+    """
+    AMBULANCE DRIVER: Send traffic alert to all logged-in traffic police.
+    This is the main "Send Traffic Alert" button functionality.
+    """
     ambulance = await db.ambulances.find_one({"id": request.ambulance_id}, {"_id": 0})
     if not ambulance:
         raise HTTPException(status_code=404, detail="Ambulance not found")
@@ -272,299 +234,194 @@ async def send_manual_traffic_alert(request: ManualAlertRequest, current_user: d
     if ambulance.get('driver_id') != current_user['sub']:
         raise HTTPException(status_code=403, detail="Not your ambulance")
     
-    # Get current trip destination if available
-    destination_hospital = None
-    if ambulance.get('current_trip_id'):
-        trip = await db.trips.find_one({"id": ambulance['current_trip_id']}, {"_id": 0})
-        if trip:
-            destination_hospital = trip.get('destination_hospital_name')
+    # Calculate distance to nearest traffic point
+    distance_to_traffic = calculate_distance_to_traffic_point(request.location)
     
+    # Create alert
     alert = TrafficAlert(
         ambulance_id=request.ambulance_id,
         ambulance_call_sign=ambulance['call_sign'],
+        driver_id=current_user['sub'],
         driver_name=current_user['name'],
-        alert_type=AlertType.MANUAL_REQUEST,
-        message=request.message,
         location=request.location,
-        speed=ambulance.get('speed', 0),
-        direction="en route",
-        eta_minutes=request.eta_minutes,
-        destination_hospital=destination_hospital
+        speed=request.speed,
+        direction=get_direction_of_travel(request.speed),
+        distance_to_traffic_point=distance_to_traffic,
+        message=request.message
     )
     
+    # Save to database
     doc = alert.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     doc['location'] = {'lat': doc['location']['lat'], 'lng': doc['location']['lng']}
-    await db.traffic_alerts.insert_one(doc)
+    await db.alerts.insert_one(doc)
     
-    # Broadcast alert
-    await manager.broadcast_traffic_alert({
+    # Enable emergency mode on ambulance
+    await db.ambulances.update_one(
+        {"id": request.ambulance_id},
+        {"$set": {"emergency_mode": True, "status": AmbulanceStatus.EMERGENCY.value}}
+    )
+    
+    # Broadcast to ALL logged-in traffic police via WebSocket
+    recipients = await manager.send_alert_to_police({
         "alert_id": alert.id,
-        "type": "MANUAL_REQUEST",
-        "ambulance_call_sign": ambulance['call_sign'],
-        "driver_name": current_user['name'],
-        "message": alert.message,
+        "ambulance_id": alert.ambulance_id,
+        "ambulance_call_sign": alert.ambulance_call_sign,
+        "driver_name": alert.driver_name,
         "location": {"lat": request.location.lat, "lng": request.location.lng},
-        "speed": ambulance.get('speed', 0),
-        "eta_minutes": request.eta_minutes,
-        "destination_hospital": destination_hospital
+        "speed": request.speed,
+        "direction": alert.direction,
+        "distance_to_traffic_point_km": distance_to_traffic,
+        "distance_to_traffic_point_m": int(distance_to_traffic * 1000),
+        "message": alert.message,
+        "status": alert.status.value,
+        "created_at": alert.created_at.isoformat()
     })
-    
-    # Update trip alerts count
-    if ambulance.get('current_trip_id'):
-        await db.trips.update_one(
-            {"id": ambulance['current_trip_id']},
-            {"$inc": {"alerts_sent": 1}}
-        )
     
     return alert
 
 
-@api_router.get("/alerts/traffic", response_model=List[TrafficAlert])
-async def get_traffic_alerts(limit: int = 50, current_user: dict = Depends(get_current_user)):
-    """Get recent traffic alerts."""
-    alerts = await db.traffic_alerts.find({}, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+@api_router.get("/alerts/live", response_model=List[TrafficAlert])
+async def get_live_alerts(current_user: dict = Depends(get_current_user)):
+    """
+    TRAFFIC POLICE: Get all active/live alerts.
+    Active alerts shown at the top.
+    """
+    alerts = await db.alerts.find(
+        {"status": {"$in": ["active", "acknowledged"]}},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    
+    # Sort: active first, then acknowledged
+    alerts.sort(key=lambda x: (0 if x.get('status') == 'active' else 1, x.get('created_at', '')))
+    
     return alerts
 
 
-@api_router.get("/alerts/recent")
-async def get_recent_alerts():
-    """Get recent alerts from WebSocket history (no auth required for demo)."""
-    return manager.get_recent_alerts(20)
+@api_router.get("/alerts/history", response_model=List[TrafficAlert])
+async def get_alert_history(limit: int = 50, current_user: dict = Depends(get_current_user)):
+    """Get alert history."""
+    alerts = await db.alerts.find({}, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return alerts
+
+
+@api_router.get("/alerts/my", response_model=List[TrafficAlert])
+async def get_my_alerts(current_user: dict = Depends(get_current_user)):
+    """AMBULANCE DRIVER: Get alerts sent by this driver."""
+    alerts = await db.alerts.find(
+        {"driver_id": current_user['sub']},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(20).to_list(20)
+    return alerts
+
+
+@api_router.post("/alert/acknowledge")
+async def acknowledge_alert(request: AcknowledgeAlertRequest, current_user: dict = Depends(get_current_user)):
+    """
+    TRAFFIC POLICE: Acknowledge an alert.
+    Updates the ambulance driver's screen.
+    """
+    if current_user.get('role') != 'police':
+        raise HTTPException(status_code=403, detail="Only traffic police can acknowledge alerts")
+    
+    alert = await db.alerts.find_one({"id": request.alert_id}, {"_id": 0})
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    if alert['status'] != 'active':
+        raise HTTPException(status_code=400, detail="Alert already processed")
+    
+    await db.alerts.update_one(
+        {"id": request.alert_id},
+        {"$set": {
+            "status": AlertStatus.ACKNOWLEDGED.value,
+            "acknowledged_by": current_user['sub'],
+            "acknowledged_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Notify the ambulance driver
+    await manager.send_status_update_to_driver(alert['driver_id'], "alert_acknowledged", {
+        "alert_id": request.alert_id,
+        "acknowledged_by": current_user['name'],
+        "message": f"Alert acknowledged by {current_user['name']}"
+    })
+    
+    # Notify all police about status change
+    await manager.broadcast_to_all_police({
+        "type": "alert_status_change",
+        "data": {
+            "alert_id": request.alert_id,
+            "new_status": "acknowledged",
+            "acknowledged_by": current_user['name']
+        }
+    })
+    
+    return {"status": "acknowledged", "acknowledged_by": current_user['name']}
+
+
+@api_router.post("/alert/clear")
+async def clear_route(request: ClearRouteRequest, current_user: dict = Depends(get_current_user)):
+    """
+    TRAFFIC POLICE: Mark route as cleared.
+    Updates the ambulance driver's screen.
+    """
+    if current_user.get('role') != 'police':
+        raise HTTPException(status_code=403, detail="Only traffic police can clear routes")
+    
+    alert = await db.alerts.find_one({"id": request.alert_id}, {"_id": 0})
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    await db.alerts.update_one(
+        {"id": request.alert_id},
+        {"$set": {
+            "status": AlertStatus.CLEARED.value,
+            "cleared_by": current_user['sub'],
+            "cleared_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Disable emergency mode on ambulance
+    await db.ambulances.update_one(
+        {"id": alert['ambulance_id']},
+        {"$set": {"emergency_mode": False, "status": AmbulanceStatus.AVAILABLE.value}}
+    )
+    
+    # Notify the ambulance driver
+    await manager.send_status_update_to_driver(alert['driver_id'], "route_cleared", {
+        "alert_id": request.alert_id,
+        "cleared_by": current_user['name'],
+        "message": request.message
+    })
+    
+    # Notify all police about status change
+    await manager.broadcast_to_all_police({
+        "type": "alert_status_change",
+        "data": {
+            "alert_id": request.alert_id,
+            "new_status": "cleared",
+            "cleared_by": current_user['name']
+        }
+    })
+    
+    return {"status": "cleared", "cleared_by": current_user['name']}
 
 
 # ============== HOSPITAL ENDPOINTS ==============
+@api_router.get("/hospitals/nearby")
+async def get_nearby_hospitals(lat: float = Query(...), lng: float = Query(...), current_user: dict = Depends(get_current_user)):
+    """Get hospitals near ambulance location with name, distance, and ETA."""
+    hospitals = await db.hospitals.find({}, {"_id": 0}).to_list(100)
+    location = Coordinates(lat=lat, lng=lng)
+    ranked = rank_hospitals_by_eta(location, hospitals)
+    return ranked[:10]
+
+
 @api_router.get("/hospitals", response_model=List[Hospital])
 async def get_hospitals(current_user: dict = Depends(get_current_user)):
     hospitals = await db.hospitals.find({}, {"_id": 0}).to_list(100)
     return [Hospital(**h) for h in hospitals]
-
-
-@api_router.get("/hospitals/nearby")
-async def get_nearby_hospitals(lat: float = Query(...), lng: float = Query(...), current_user: dict = Depends(get_current_user)):
-    """Get hospitals ranked by ETA with traffic consideration."""
-    hospitals = await db.hospitals.find({}, {"_id": 0}).to_list(100)
-    location = Coordinates(lat=lat, lng=lng)
-    traffic_zones = await get_traffic_zones_near(location)
-    ranked = rank_hospitals_by_eta(location, hospitals, traffic_zones)
-    return ranked[:10]
-
-
-@api_router.get("/hospitals/{hospital_id}", response_model=Hospital)
-async def get_hospital(hospital_id: str, current_user: dict = Depends(get_current_user)):
-    hospital = await db.hospitals.find_one({"id": hospital_id}, {"_id": 0})
-    if not hospital:
-        raise HTTPException(status_code=404, detail="Hospital not found")
-    return Hospital(**hospital)
-
-
-# ============== ROUTE ENDPOINTS ==============
-@api_router.get("/route/optimal", response_model=RouteResponse)
-async def get_optimal_route(
-    ambulance_id: str,
-    dest_lat: float,
-    dest_lng: float,
-    current_user: dict = Depends(get_current_user)
-):
-    """Get optimal route with traffic awareness."""
-    ambulance = await db.ambulances.find_one({"id": ambulance_id}, {"_id": 0})
-    if not ambulance:
-        raise HTTPException(status_code=404, detail="Ambulance not found")
-    
-    start = Coordinates(lat=ambulance['location']['lat'], lng=ambulance['location']['lng'])
-    destination = Coordinates(lat=dest_lat, lng=dest_lng)
-    
-    traffic_zones = await get_traffic_zones_near(start)
-    traffic_zones_list = [TrafficZone(**z) for z in traffic_zones] if traffic_zones else generate_mock_traffic_zones(start)
-    
-    primary_route = compute_route(start, destination, traffic_zones_list, ambulance.get('emergency_mode', False))
-    alternate_route = compute_alternate_route(start, destination, traffic_zones_list)
-    
-    return RouteResponse(
-        primary_route=primary_route,
-        alternate_route=alternate_route,
-        traffic_zones=traffic_zones_list
-    )
-
-
-@api_router.post("/route/to-hospital/{hospital_id}", response_model=RouteResponse)
-async def calculate_route_to_hospital(hospital_id: str, ambulance_id: str, current_user: dict = Depends(get_current_user)):
-    """Calculate route to specific hospital with traffic zones."""
-    ambulance = await db.ambulances.find_one({"id": ambulance_id}, {"_id": 0})
-    hospital = await db.hospitals.find_one({"id": hospital_id}, {"_id": 0})
-    
-    if not ambulance:
-        raise HTTPException(status_code=404, detail="Ambulance not found")
-    if not hospital:
-        raise HTTPException(status_code=404, detail="Hospital not found")
-    
-    start = Coordinates(lat=ambulance['location']['lat'], lng=ambulance['location']['lng'])
-    end = Coordinates(lat=hospital['coordinates']['lat'], lng=hospital['coordinates']['lng'])
-    
-    traffic_zones = await get_traffic_zones_near(start)
-    traffic_zones_list = [TrafficZone(**z) for z in traffic_zones] if traffic_zones else generate_mock_traffic_zones(start)
-    
-    primary_route = compute_route(start, end, traffic_zones_list, True)
-    alternate_route = compute_alternate_route(start, end, traffic_zones_list)
-    
-    return RouteResponse(
-        primary_route=primary_route,
-        alternate_route=alternate_route,
-        destination_hospital=Hospital(**hospital),
-        traffic_zones=traffic_zones_list
-    )
-
-
-# ============== TRAFFIC ZONE ENDPOINTS ==============
-@api_router.get("/traffic/zones")
-async def get_traffic_zones(lat: float = Query(...), lng: float = Query(...)):
-    """Get traffic congestion zones near location."""
-    location = Coordinates(lat=lat, lng=lng)
-    zones = await get_traffic_zones_near(location)
-    if not zones:
-        # Return mock data if no real data
-        mock_zones = generate_mock_traffic_zones(location)
-        return [z.model_dump() for z in mock_zones]
-    return zones
-
-
-@api_router.post("/traffic/zones", response_model=TrafficZone)
-async def create_traffic_zone(zone: TrafficZone, current_user: dict = Depends(require_role(["admin"]))):
-    """Admin: Create traffic congestion zone."""
-    doc = zone.model_dump()
-    doc['location'] = {'lat': doc['location']['lat'], 'lng': doc['location']['lng']}
-    await db.traffic_zones.insert_one(doc)
-    return zone
-
-
-# ============== TRIP ENDPOINTS ==============
-@api_router.post("/trip/start", response_model=Trip)
-async def start_trip(request: StartTripRequest, current_user: dict = Depends(get_current_user)):
-    """Start trip to hospital."""
-    ambulance = await db.ambulances.find_one({"id": request.ambulance_id}, {"_id": 0})
-    hospital = await db.hospitals.find_one({"id": request.hospital_id}, {"_id": 0})
-    
-    if not ambulance:
-        raise HTTPException(status_code=404, detail="Ambulance not found")
-    if not hospital:
-        raise HTTPException(status_code=404, detail="Hospital not found")
-    if ambulance.get('driver_id') != current_user['sub']:
-        raise HTTPException(status_code=403, detail="Not your ambulance")
-    if ambulance.get('current_trip_id'):
-        raise HTTPException(status_code=400, detail="Already on a trip")
-    
-    start_loc = Coordinates(lat=ambulance['location']['lat'], lng=ambulance['location']['lng'])
-    end_loc = Coordinates(lat=hospital['coordinates']['lat'], lng=hospital['coordinates']['lng'])
-    
-    traffic_zones = await get_traffic_zones_near(start_loc)
-    traffic_zones_list = [TrafficZone(**z) for z in traffic_zones] if traffic_zones else generate_mock_traffic_zones(start_loc)
-    
-    route = compute_route(start_loc, end_loc, traffic_zones_list, True)
-    
-    trip = Trip(
-        ambulance_id=request.ambulance_id,
-        driver_id=current_user['sub'],
-        driver_name=current_user['name'],
-        destination_hospital_id=request.hospital_id,
-        destination_hospital_name=hospital['name'],
-        start_location=start_loc,
-        end_location=end_loc,
-        route=route,
-        congestion_level=route.congestion_level
-    )
-    
-    doc = trip.model_dump()
-    doc['started_at'] = doc['started_at'].isoformat()
-    doc['route']['points'] = [p.model_dump() if hasattr(p, 'model_dump') else p for p in doc['route']['points']]
-    await db.trips.insert_one(doc)
-    
-    await db.ambulances.update_one(
-        {"id": request.ambulance_id},
-        {"$set": {
-            "status": AmbulanceStatus.ON_TRIP.value,
-            "current_trip_id": trip.id,
-            "last_updated": datetime.now(timezone.utc).isoformat()
-        }}
-    )
-    
-    return trip
-
-
-@api_router.post("/trip/end")
-async def end_trip(request: EndTripRequest, current_user: dict = Depends(get_current_user)):
-    """End current trip."""
-    trip = await db.trips.find_one({"id": request.trip_id}, {"_id": 0})
-    if not trip:
-        raise HTTPException(status_code=404, detail="Trip not found")
-    if trip['driver_id'] != current_user['sub']:
-        raise HTTPException(status_code=403, detail="Not your trip")
-    if trip['status'] != 'active':
-        raise HTTPException(status_code=400, detail="Trip already ended")
-    
-    await db.trips.update_one(
-        {"id": request.trip_id},
-        {"$set": {"status": TripStatus.COMPLETED.value, "completed_at": datetime.now(timezone.utc).isoformat()}}
-    )
-    
-    await db.ambulances.update_one(
-        {"id": trip['ambulance_id']},
-        {"$set": {
-            "status": AmbulanceStatus.AVAILABLE.value,
-            "current_trip_id": None,
-            "emergency_mode": False,
-            "last_updated": datetime.now(timezone.utc).isoformat()
-        }}
-    )
-    
-    return {"status": "completed", "trip_id": request.trip_id}
-
-
-@api_router.get("/trip/current", response_model=Optional[Trip])
-async def get_current_trip(current_user: dict = Depends(get_current_user)):
-    trip = await db.trips.find_one({"driver_id": current_user['sub'], "status": "active"}, {"_id": 0})
-    if trip:
-        return Trip(**trip)
-    return None
-
-
-@api_router.get("/trips/history", response_model=List[Trip])
-async def get_trip_history(limit: int = 20, current_user: dict = Depends(get_current_user)):
-    trips = await db.trips.find({"driver_id": current_user['sub']}, {"_id": 0}).sort("started_at", -1).limit(limit).to_list(limit)
-    return [Trip(**t) for t in trips]
-
-
-# ============== V2X API (Future Traffic Light Preemption) ==============
-@api_router.post("/v2x/preemption")
-async def request_traffic_preemption(
-    ambulance_id: str,
-    intersection_lat: float,
-    intersection_lng: float,
-    current_user: dict = Depends(get_current_user)
-):
-    """API endpoint for future traffic light preemption (green wave activation)."""
-    ambulance = await db.ambulances.find_one({"id": ambulance_id}, {"_id": 0})
-    if not ambulance:
-        raise HTTPException(status_code=404, detail="Ambulance not found")
-    
-    preemption_request = {
-        "ambulance_id": ambulance_id,
-        "ambulance_call_sign": ambulance['call_sign'],
-        "intersection": {"lat": intersection_lat, "lng": intersection_lng},
-        "ambulance_location": ambulance['location'],
-        "speed": ambulance.get('speed', 0),
-        "emergency_mode": ambulance.get('emergency_mode', False),
-        "requested_at": datetime.now(timezone.utc).isoformat(),
-        "response": "PREEMPTION_QUEUED"
-    }
-    
-    await db.v2x_requests.insert_one(preemption_request)
-    
-    return {
-        "status": "preemption_requested",
-        "message": "Traffic signal preemption request queued (V2X integration pending)",
-        "intersection": {"lat": intersection_lat, "lng": intersection_lng},
-        "estimated_activation": "15 seconds"
-    }
 
 
 # ============== ADMIN ENDPOINTS ==============
@@ -572,12 +429,6 @@ async def request_traffic_preemption(
 async def get_users(current_user: dict = Depends(require_role(["admin"]))):
     users = await db.users.find({}, {"_id": 0, "hashed_password": 0}).to_list(100)
     return [User(**u) for u in users]
-
-
-@api_router.get("/admin/trips", response_model=List[Trip])
-async def get_all_trips(limit: int = 50, current_user: dict = Depends(require_role(["admin"]))):
-    trips = await db.trips.find({}, {"_id": 0}).sort("started_at", -1).limit(limit).to_list(limit)
-    return trips
 
 
 @api_router.delete("/admin/users/{user_id}")
@@ -615,8 +466,6 @@ async def seed_data(current_user: dict = Depends(require_role(["admin"]))):
         Ambulance(call_sign="AMB-001", location=Coordinates(lat=40.7150, lng=-74.0050)),
         Ambulance(call_sign="AMB-002", location=Coordinates(lat=40.7220, lng=-74.0120)),
         Ambulance(call_sign="AMB-003", location=Coordinates(lat=40.7080, lng=-73.9980)),
-        Ambulance(call_sign="AMB-004", location=Coordinates(lat=40.7280, lng=-74.0080)),
-        Ambulance(call_sign="AMB-005", location=Coordinates(lat=40.7100, lng=-74.0020)),
     ]
     
     for a in ambulances:
@@ -627,20 +476,23 @@ async def seed_data(current_user: dict = Depends(require_role(["admin"]))):
             doc['location'] = {'lat': doc['location']['lat'], 'lng': doc['location']['lng']}
             await db.ambulances.insert_one(doc)
     
-    # Seed traffic zones
-    center = Coordinates(lat=40.7128, lng=-74.0060)
-    mock_zones = generate_mock_traffic_zones(center)
-    for zone in mock_zones:
-        doc = zone.model_dump()
-        doc['location'] = {'lat': doc['location']['lat'], 'lng': doc['location']['lng']}
-        await db.traffic_zones.insert_one(doc)
-    
-    return {"status": "seeded", "hospitals": len(hospitals), "ambulances": len(ambulances), "traffic_zones": len(mock_zones)}
+    return {"status": "seeded", "hospitals": len(hospitals), "ambulances": len(ambulances)}
+
+
+@api_router.get("/stats")
+async def get_stats(current_user: dict = Depends(get_current_user)):
+    """Get system stats."""
+    return {
+        "connected_police": manager.get_connected_police_count(),
+        "connected_drivers": manager.get_connected_driver_count(),
+        "active_alerts": await db.alerts.count_documents({"status": "active"})
+    }
 
 
 # ============== WEBSOCKET ENDPOINTS ==============
 @app.websocket("/api/ws/driver/{driver_id}")
 async def websocket_driver(websocket: WebSocket, driver_id: str):
+    """WebSocket for ambulance drivers to receive status updates."""
     await manager.connect_driver(websocket, driver_id)
     try:
         while True:
@@ -648,13 +500,13 @@ async def websocket_driver(websocket: WebSocket, driver_id: str):
             message = json.loads(data)
             
             if message.get('type') == 'location_update':
-                loc_data = message.get('data', {})
-                if loc_data.get('ambulance_id'):
+                loc = message.get('data', {})
+                if loc.get('ambulance_id'):
                     await db.ambulances.update_one(
-                        {"id": loc_data['ambulance_id']},
+                        {"id": loc['ambulance_id']},
                         {"$set": {
-                            "location": {"lat": loc_data['lat'], "lng": loc_data['lng']},
-                            "speed": loc_data.get('speed', 0),
+                            "location": {"lat": loc['lat'], "lng": loc['lng']},
+                            "speed": loc.get('speed', 0),
                             "last_updated": datetime.now(timezone.utc).isoformat()
                         }}
                     )
@@ -664,10 +516,10 @@ async def websocket_driver(websocket: WebSocket, driver_id: str):
         manager.disconnect_driver(driver_id)
 
 
-@app.websocket("/api/ws/alerts")
-async def websocket_traffic_alerts(websocket: WebSocket):
-    """WebSocket for receiving traffic alerts (future: traffic police app)."""
-    await manager.connect_traffic_listener(websocket)
+@app.websocket("/api/ws/police/{police_id}")
+async def websocket_police(websocket: WebSocket, police_id: str):
+    """WebSocket for traffic police to receive alerts and location updates."""
+    await manager.connect_police(websocket, police_id)
     try:
         while True:
             data = await websocket.receive_text()
@@ -675,53 +527,13 @@ async def websocket_traffic_alerts(websocket: WebSocket):
             if message.get('type') == 'ping':
                 await websocket.send_json({"type": "pong"})
     except WebSocketDisconnect:
-        manager.disconnect_traffic_listener(websocket)
-
-
-# ============== HELPER FUNCTIONS ==============
-async def get_traffic_zones_near(location: Coordinates) -> List[dict]:
-    """Get traffic zones near a location."""
-    zones = await db.traffic_zones.find({}, {"_id": 0}).to_list(100)
-    nearby = []
-    for zone in zones:
-        zone_loc = Coordinates(lat=zone['location']['lat'], lng=zone['location']['lng'])
-        if haversine_distance(location, zone_loc) < 5:  # Within 5km
-            nearby.append(zone)
-    return nearby
-
-
-async def send_auto_congestion_alert(ambulance: dict, location: Coordinates, zone: TrafficZone):
-    """Automatically send alert when hitting severe congestion."""
-    alert = TrafficAlert(
-        ambulance_id=ambulance['id'],
-        ambulance_call_sign=ambulance['call_sign'],
-        driver_name=ambulance.get('driver_name', 'Unknown'),
-        alert_type=AlertType.HIGH_CONGESTION,
-        message=f"🚨 High congestion detected — assist ambulance {ambulance['call_sign']} movement!",
-        location=location,
-        speed=ambulance.get('speed', 0),
-        congestion_level=zone.congestion_level
-    )
-    
-    doc = alert.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    doc['location'] = {'lat': doc['location']['lat'], 'lng': doc['location']['lng']}
-    await db.traffic_alerts.insert_one(doc)
-    
-    await manager.broadcast_traffic_alert({
-        "alert_id": alert.id,
-        "type": "HIGH_CONGESTION_AUTO",
-        "ambulance_call_sign": ambulance['call_sign'],
-        "message": alert.message,
-        "location": {"lat": location.lat, "lng": location.lng},
-        "congestion_level": zone.congestion_level.value
-    })
+        manager.disconnect_police(police_id)
 
 
 # ============== ROOT ==============
 @api_router.get("/")
 async def root():
-    return {"message": "Ambulance Emergency Traffic & Hospital Alert System", "version": "3.0.0"}
+    return {"message": "Ambulance Emergency Traffic Alert System", "version": "4.0.0"}
 
 
 @api_router.get("/health")

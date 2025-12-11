@@ -8,6 +8,7 @@ import uuid
 class UserRole(str, Enum):
     ADMIN = "admin"
     DRIVER = "driver"
+    POLICE = "police"
 
 
 class AmbulanceStatus(str, Enum):
@@ -17,24 +18,11 @@ class AmbulanceStatus(str, Enum):
     OFFLINE = "offline"
 
 
-class TripStatus(str, Enum):
+class AlertStatus(str, Enum):
     ACTIVE = "active"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
-
-
-class CongestionLevel(str, Enum):
-    LOW = "low"
-    MODERATE = "moderate"
-    HIGH = "high"
-    SEVERE = "severe"
-
-
-class AlertType(str, Enum):
-    EMERGENCY_APPROACH = "emergency_approach"
-    HIGH_CONGESTION = "high_congestion"
-    ROUTE_BLOCKED = "route_blocked"
-    MANUAL_REQUEST = "manual_request"
+    ACKNOWLEDGED = "acknowledged"
+    CLEARED = "cleared"
+    EXPIRED = "expired"
 
 
 class Coordinates(BaseModel):
@@ -87,17 +75,6 @@ class Hospital(BaseModel):
     distance_km: Optional[float] = None
 
 
-class TrafficZone(BaseModel):
-    """Traffic congestion zone on the map."""
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    location: Coordinates
-    radius_km: float = 0.5
-    congestion_level: CongestionLevel = CongestionLevel.LOW
-    description: str = ""
-    incident_type: Optional[str] = None  # accident, construction, event, etc.
-    blocked: bool = False
-
-
 class Ambulance(BaseModel):
     model_config = ConfigDict(extra="ignore")
     
@@ -109,14 +86,8 @@ class Ambulance(BaseModel):
     location: Coordinates
     speed: float = 0
     heading: float = 0
-    current_trip_id: Optional[str] = None
     emergency_mode: bool = False
     last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class AmbulanceCreate(BaseModel):
-    call_sign: str
-    location: Coordinates
 
 
 class AmbulanceLocationUpdate(BaseModel):
@@ -126,95 +97,51 @@ class AmbulanceLocationUpdate(BaseModel):
     heading: float = 0
 
 
-class RoutePoint(BaseModel):
-    lat: float
-    lng: float
-    instruction: str = ""
-    congestion: CongestionLevel = CongestionLevel.LOW
-
-
-class Route(BaseModel):
-    points: List[RoutePoint]
-    distance_km: float
-    duration_minutes: int
-    traffic_delay_minutes: int = 0
-    congestion_level: CongestionLevel = CongestionLevel.LOW
-    next_turn: str = ""
-    traffic_warnings: List[str] = []
-    blocked_roads: List[str] = []
-
-
-class RouteRequest(BaseModel):
-    ambulance_id: str
-    destination: Coordinates
-    emergency: bool = True
-
-
-class RouteResponse(BaseModel):
-    primary_route: Route
-    alternate_route: Optional[Route] = None
-    destination_hospital: Optional[Hospital] = None
-    traffic_zones: List[TrafficZone] = []
-
-
-class GPSPoint(BaseModel):
-    lat: float
-    lng: float
-    timestamp: datetime
-    speed: float = 0
-
-
-class Trip(BaseModel):
+class AmbulanceLocation(BaseModel):
+    """Ambulance location history record."""
     model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     ambulance_id: str
-    driver_id: str
-    driver_name: str
-    destination_hospital_id: str
-    destination_hospital_name: str
-    start_location: Coordinates
-    end_location: Coordinates
-    route: Optional[Route] = None
-    gps_history: List[GPSPoint] = []
-    status: TripStatus = TripStatus.ACTIVE
-    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
-    congestion_level: CongestionLevel = CongestionLevel.LOW
-    alerts_sent: int = 0
+    lat: float
+    lng: float
+    speed: float = 0
+    time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class TrafficAlert(BaseModel):
-    """Alert sent to traffic authorities."""
+    """Alert sent from ambulance driver to traffic police."""
     model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     ambulance_id: str
     ambulance_call_sign: str
+    driver_id: str
     driver_name: str
-    alert_type: AlertType
-    message: str
     location: Coordinates
     speed: float = 0
     direction: str = ""
-    eta_minutes: Optional[int] = None
-    destination_hospital: Optional[str] = None
-    congestion_level: CongestionLevel = CongestionLevel.LOW
+    distance_to_traffic_point: Optional[float] = None
+    message: str = "🚨 Ambulance approaching — please clear the route!"
+    status: AlertStatus = AlertStatus.ACTIVE
+    acknowledged_by: Optional[str] = None
+    acknowledged_at: Optional[datetime] = None
+    cleared_by: Optional[str] = None
+    cleared_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    acknowledged: bool = False
 
 
-class ManualAlertRequest(BaseModel):
+class SendAlertRequest(BaseModel):
     ambulance_id: str
-    message: str = "Requesting traffic assistance - please clear path"
     location: Coordinates
-    eta_minutes: Optional[int] = None
+    speed: float = 0
+    message: str = "🚨 Ambulance approaching — please clear the route!"
 
 
-class StartTripRequest(BaseModel):
-    ambulance_id: str
-    hospital_id: str
+class AcknowledgeAlertRequest(BaseModel):
+    alert_id: str
 
 
-class EndTripRequest(BaseModel):
-    trip_id: str
+class ClearRouteRequest(BaseModel):
+    alert_id: str
+    message: str = "Route cleared - proceed safely"
