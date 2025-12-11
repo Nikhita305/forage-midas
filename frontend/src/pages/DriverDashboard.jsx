@@ -207,6 +207,60 @@ const DriverDashboard = () => {
     }
   };
 
+  // Generate route with waypoints and simulate traffic
+  const generateRouteToHospital = (hospital) => {
+    const start = currentLocation;
+    const end = hospital.coordinates;
+    
+    // Calculate intermediate waypoints (simplified routing)
+    const numWaypoints = 8;
+    const waypoints = [];
+    
+    for (let i = 0; i <= numWaypoints; i++) {
+      const ratio = i / numWaypoints;
+      // Add some curve to make it look like a real route
+      const curve = Math.sin(ratio * Math.PI) * 0.003;
+      waypoints.push([
+        start.lat + (end.lat - start.lat) * ratio + curve,
+        start.lng + (end.lng - start.lng) * ratio + (Math.random() - 0.5) * 0.002
+      ]);
+    }
+    
+    // Simulate traffic level based on distance and time
+    const distance = hospital.distance_km;
+    const randomFactor = Math.random();
+    
+    let trafficLevel;
+    if (distance < 1 && randomFactor > 0.7) {
+      trafficLevel = 'low'; // Close and lucky - green
+    } else if (distance > 2 || randomFactor < 0.3) {
+      trafficLevel = 'high'; // Far or unlucky - red
+    } else {
+      trafficLevel = 'medium'; // Moderate - yellow
+    }
+    
+    setRouteToHospital(waypoints);
+    setRouteTrafficLevel(trafficLevel);
+  };
+
+  const selectHospital = (hospital) => {
+    if (selectedHospital?.id === hospital.id) {
+      // Deselect if clicking same hospital
+      setSelectedHospital(null);
+      setRouteToHospital([]);
+    } else {
+      setSelectedHospital(hospital);
+      generateRouteToHospital(hospital);
+      toast.info(`📍 Route to ${hospital.name}`, {
+        description: `Traffic: ${
+          routeTrafficLevel === 'low' ? '🟢 Low' : 
+          routeTrafficLevel === 'medium' ? '🟡 Moderate' : 
+          '🔴 High'
+        }`
+      });
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-zinc-950">
       <Toaster position="top-center" richColors />
