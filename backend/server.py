@@ -179,6 +179,48 @@ async def update_ambulance_location(update: AmbulanceLocationUpdate, current_use
         }}
     )
     
+    # If ambulance is in emergency mode, update green corridor
+    ambulance = await db.ambulances.find_one({"id": update.ambulance_id}, {"_id": 0})
+    if ambulance and ambulance.get('emergency_mode'):
+        # Get all traffic lights
+        lights_data = await db.traffic_lights.find({}, {"_id": 0}).to_list(100)
+        lights = [TrafficLight(**light) for light in lights_data]
+        
+        # Activate green corridor
+        corridor_status = activate_green_corridor(
+            ambulance['id'],
+            update.location,
+            update.speed,
+            lights
+        )
+        
+        # Update lights in database
+        for light in lights:
+            doc = light.model_dump()
+            doc['last_state_change'] = doc['last_state_change'].isoformat()
+            doc['coordinates'] = {'lat': doc['coordinates']['lat'], 'lng': doc['coordinates']['lng']}
+            if doc.get('activated_at'):
+                doc['activated_at'] = doc['activated_at'].isoformat()
+            await db.traffic_lights.update_one({"id": light.id}, {"$set": doc})
+        
+        # Check for deactivation
+        deactivated = check_and_deactivate_passed_junctions(
+            ambulance['id'],
+            update.location,
+            lights
+        )
+        
+        # Update deactivated lights
+        for light_id in deactivated:
+            light = next((l for l in lights if l.id == light_id), None)
+            if light:
+                doc = light.model_dump()
+                doc['last_state_change'] = doc['last_state_change'].isoformat()
+                doc['coordinates'] = {'lat': doc['coordinates']['lat'], 'lng': doc['coordinates']['lng']}
+                if doc.get('activated_at'):
+                    doc['activated_at'] = doc['activated_at'].isoformat()
+                await db.traffic_lights.update_one({"id": light.id}, {"$set": doc})
+    
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Ambulance not found")
     
