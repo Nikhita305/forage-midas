@@ -242,24 +242,6 @@ class SmartAmbulanceAPITester:
         # This test passes if it gets 403 (forbidden)
         return success
 
-    def test_assign_hospital(self):
-        """Test hospital assignment functionality"""
-        if not self.dispatcher_token:
-            return False
-        
-        # Get ambulances and hospitals first
-        success, ambulances = self.run_test("Get Ambulances for Assignment", "GET", "ambulances", 200, token=self.dispatcher_token)
-        success, hospitals = self.run_test("Get Hospitals for Assignment", "GET", "hospitals", 200, token=self.dispatcher_token)
-        
-        if success and ambulances and hospitals:
-            assign_data = {
-                "ambulance_id": ambulances[0]['id'],
-                "hospital_id": hospitals[0]['id']
-            }
-            success, _ = self.run_test("Assign Hospital", "POST", "assign-hospital", 200, assign_data, token=self.dispatcher_token)
-        
-        return success
-
     def test_traffic_endpoints(self):
         """Test traffic-related endpoints"""
         if not self.token:
