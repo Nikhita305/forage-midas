@@ -7,7 +7,7 @@ import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Ambulance, ShieldAlert, Shield, Radio } from 'lucide-react';
+import { Ambulance, Shield, Radio } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
 const Login = () => {
@@ -28,7 +28,7 @@ const Login = () => {
     setIsLoading(true);
     try {
       const user = await login(loginEmail, loginPassword);
-      toast.success('Login successful');
+      toast.success(`Welcome back, ${user.name}!`);
       navigateByRole(user.role);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Login failed');
@@ -42,7 +42,7 @@ const Login = () => {
     setIsLoading(true);
     try {
       const user = await register(regEmail, regPassword, regName, regRole);
-      toast.success('Registration successful');
+      toast.success('Account created successfully!');
       navigateByRole(user.role);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Registration failed');
@@ -52,10 +52,17 @@ const Login = () => {
   };
 
   const navigateByRole = (role) => {
-    if (role === 'admin') {
-      navigate('/admin');
-    } else {
-      navigate('/driver');
+    switch (role) {
+      case 'police':
+        navigate('/police');
+        break;
+      case 'admin':
+        navigate('/admin');
+        break;
+      case 'driver':
+      default:
+        navigate('/driver');
+        break;
     }
   };
 
@@ -64,37 +71,40 @@ const Login = () => {
       <Toaster position="top-right" richColors />
       
       {/* Left side - Hero */}
-      <div className="hidden lg:flex lg:w-1/2 login-hero relative">
-        <div className="absolute inset-0 bg-black/80" />
+      <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-zinc-900 via-zinc-900 to-red-950">
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1587745416684-47953f16f02f?w=1200')] bg-cover bg-center opacity-20" />
         <div className="relative z-10 flex flex-col justify-center p-12 text-white">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-md bg-red-500 flex items-center justify-center">
-              <Ambulance className="w-7 h-7" />
+            <div className="w-14 h-14 rounded-xl bg-red-500 flex items-center justify-center">
+              <Ambulance className="w-8 h-8" />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">EMRS</h1>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Emergency Alert</h1>
+              <p className="text-sm text-zinc-400">Traffic System</p>
+            </div>
           </div>
-          <h2 className="text-4xl font-bold mb-4">Smart Ambulance<br />Routing System</h2>
-          <p className="text-zinc-400 text-lg max-w-md">
-            Intelligent routing, real-time GPS tracking, and hospital finder for faster emergency response.
+          <h2 className="text-4xl font-bold mb-4">Ambulance Emergency<br />Traffic Alert System</h2>
+          <p className="text-zinc-400 text-lg max-w-md mb-8">
+            Real-time coordination between ambulance drivers and traffic police for faster emergency response.
           </p>
           
-          <div className="mt-12 grid grid-cols-2 gap-6">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                <Radio className="w-5 h-5 text-blue-500" />
+          <div className="grid grid-cols-2 gap-6">
+            <div className="flex items-start gap-3 p-4 bg-zinc-800/50 rounded-lg">
+              <div className="w-10 h-10 rounded bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                <Ambulance className="w-5 h-5 text-red-400" />
               </div>
               <div>
-                <h3 className="font-semibold text-zinc-100">Live GPS</h3>
-                <p className="text-sm text-zinc-500">Real-time tracking</p>
+                <h3 className="font-semibold text-zinc-100">Ambulance Driver</h3>
+                <p className="text-sm text-zinc-500">Send instant alerts to traffic police</p>
               </div>
             </div>
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                <ShieldAlert className="w-5 h-5 text-red-500" />
+            <div className="flex items-start gap-3 p-4 bg-zinc-800/50 rounded-lg">
+              <div className="w-10 h-10 rounded bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                <Shield className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <h3 className="font-semibold text-zinc-100">Smart Routes</h3>
-                <p className="text-sm text-zinc-500">Traffic-aware paths</p>
+                <h3 className="font-semibold text-zinc-100">Traffic Police</h3>
+                <p className="text-sm text-zinc-500">Receive alerts & clear routes</p>
               </div>
             </div>
           </div>
@@ -105,10 +115,13 @@ const Login = () => {
       <div className="flex-1 flex items-center justify-center p-8 bg-zinc-950">
         <div className="w-full max-w-md">
           <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-            <div className="w-10 h-10 rounded-md bg-red-500 flex items-center justify-center">
-              <Ambulance className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 rounded-xl bg-red-500 flex items-center justify-center">
+              <Ambulance className="w-7 h-7 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-zinc-100">EMRS</h1>
+            <div>
+              <h1 className="text-xl font-bold text-zinc-100">Emergency Alert</h1>
+              <p className="text-xs text-zinc-500">Traffic System</p>
+            </div>
           </div>
 
           <Tabs defaultValue="login" className="w-full">
@@ -122,7 +135,7 @@ const Login = () => {
                 <CardHeader>
                   <CardTitle className="text-zinc-100">Welcome back</CardTitle>
                   <CardDescription className="text-zinc-500">
-                    Sign in to access your dashboard
+                    Sign in as Ambulance Driver or Traffic Police
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -156,7 +169,7 @@ const Login = () => {
                     <Button 
                       type="submit" 
                       data-testid="login-submit-btn"
-                      className="w-full bg-red-500 hover:bg-red-600 text-white font-medium uppercase text-xs tracking-wide"
+                      className="w-full bg-red-500 hover:bg-red-600 text-white font-medium"
                       disabled={isLoading}
                     >
                       {isLoading ? 'Signing in...' : 'Sign In'}
@@ -171,7 +184,7 @@ const Login = () => {
                 <CardHeader>
                   <CardTitle className="text-zinc-100">Create account</CardTitle>
                   <CardDescription className="text-zinc-500">
-                    Join the emergency response network
+                    Register as Ambulance Driver or Traffic Police
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -216,7 +229,7 @@ const Login = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="reg-role" className="text-zinc-300">Role</Label>
+                      <Label htmlFor="reg-role" className="text-zinc-300">I am a</Label>
                       <Select value={regRole} onValueChange={setRegRole}>
                         <SelectTrigger 
                           data-testid="register-role-select"
@@ -227,14 +240,14 @@ const Login = () => {
                         <SelectContent className="bg-zinc-900 border-zinc-800">
                           <SelectItem value="driver" className="text-zinc-100">
                             <div className="flex items-center gap-2">
-                              <Ambulance className="w-4 h-4" />
-                              <span>Driver</span>
+                              <Ambulance className="w-4 h-4 text-red-400" />
+                              <span>Ambulance Driver</span>
                             </div>
                           </SelectItem>
-                          <SelectItem value="admin" className="text-zinc-100">
+                          <SelectItem value="police" className="text-zinc-100">
                             <div className="flex items-center gap-2">
-                              <Shield className="w-4 h-4" />
-                              <span>Admin</span>
+                              <Shield className="w-4 h-4 text-blue-400" />
+                              <span>Traffic Police</span>
                             </div>
                           </SelectItem>
                         </SelectContent>
@@ -243,7 +256,7 @@ const Login = () => {
                     <Button 
                       type="submit" 
                       data-testid="register-submit-btn"
-                      className="w-full bg-red-500 hover:bg-red-600 text-white font-medium uppercase text-xs tracking-wide"
+                      className="w-full bg-red-500 hover:bg-red-600 text-white font-medium"
                       disabled={isLoading}
                     >
                       {isLoading ? 'Creating account...' : 'Create Account'}
