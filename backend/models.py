@@ -145,3 +145,46 @@ class AcknowledgeAlertRequest(BaseModel):
 class ClearRouteRequest(BaseModel):
     alert_id: str
     message: str = "Route cleared - proceed safely"
+
+
+class SignalState(str, Enum):
+    RED = "red"
+    YELLOW = "yellow"
+    GREEN = "green"
+
+
+class TrafficLightMode(str, Enum):
+    NORMAL = "normal"
+    EMERGENCY = "emergency"
+    MANUAL = "manual"
+
+
+class TrafficLight(BaseModel):
+    """Traffic light/junction in the system."""
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    coordinates: Coordinates
+    current_state: SignalState = SignalState.RED
+    mode: TrafficLightMode = TrafficLightMode.NORMAL
+    normal_cycle_seconds: int = 120  # Normal cycle duration
+    controlled_by_ambulance: Optional[str] = None  # ambulance_id if in emergency mode
+    affected_lanes: List[str] = []  # e.g., ["North-South", "East-West"]
+    last_state_change: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    activated_at: Optional[datetime] = None
+
+
+class TrafficLightControl(BaseModel):
+    """Manual control request for traffic light."""
+    light_id: str
+    state: SignalState
+    duration_seconds: Optional[int] = None
+
+
+class GreenCorridorStatus(BaseModel):
+    """Status of green corridor for an ambulance."""
+    ambulance_id: str
+    active_lights: List[str] = []  # List of traffic light IDs
+    upcoming_lights: List[str] = []  # Lights ambulance is approaching
+    eta_to_next_junction: Optional[float] = None  # seconds
