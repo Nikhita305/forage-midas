@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import React, { useEffect, useState, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
@@ -12,7 +12,7 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 import { 
   Ambulance, Phone, Clock, MapPin, Hospital, LogOut, Radio,
-  AlertTriangle, Send, CheckCircle, Navigation
+  AlertTriangle, Send, CheckCircle, Navigation, Route as RouteIcon
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
