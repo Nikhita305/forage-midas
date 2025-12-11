@@ -68,12 +68,7 @@ def calculate_eta_to_junction(
     Returns:
         ETA in seconds, or None if not approaching
     """
-    distance_km = haversine_distance(
-        ambulance_location.lat,
-        ambulance_location.lng,
-        junction_location.lat,
-        junction_location.lng
-    )
+    distance_km = haversine_distance(ambulance_location, junction_location)
     distance_m = distance_km * 1000
     
     # If junction is beyond detection radius + buffer, not relevant
