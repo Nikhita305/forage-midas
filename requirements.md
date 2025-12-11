@@ -1,80 +1,84 @@
-# Smart Ambulance Traffic & Hospital Routing System
+# Smart Ambulance Routing & Hospital Finder System
 
 ## Original Problem Statement
 Build a production-ready Emergency Vehicle Routing System with:
-- Ambulance Mobile App with real-time GPS tracking, Emergency Mode toggle
-- Dispatcher Dashboard with live map of all ambulances, hospitals, traffic events
-- Routing Engine with traffic-aware route computation
-- Hospital Discovery with specialties and ETA ranking
-- Emergency Alert System with push notifications
-- Backend with JWT Auth (Admin, Dispatcher, Driver roles) and WebSockets
-- Simulation Mode for testing
+- Ambulance Mobile App with real-time GPS tracking, Emergency Mode, Start/End Trip
+- Intelligent Routing Engine with traffic-aware routing, recalculation every 15 seconds
+- Hospital Finder with nearby hospitals ranked by ETA with specialties
+- Traffic Clearing Alerts when in emergency mode
+- Backend with JWT Auth (Driver, Admin roles only - NO dispatcher)
+- Trip logging with GPS history
+- V2X API endpoint for future traffic signal preemption
 
 ## Architecture Completed
 
 ### Backend (FastAPI + MongoDB)
-- **Auth System**: JWT-based authentication with 3 roles (Admin, Dispatcher, Driver)
-- **Models**: Users, Ambulances, Hospitals, Trips, TrafficEvents, Alerts, AuditLogs
-- **WebSocket**: Real-time updates for ambulance tracking and alerts
-- **Routing Engine**: Mock traffic-aware routing with primary + backup routes
-- **Endpoints**:
-  - POST /api/auth/register, /api/auth/login, GET /api/auth/me
-  - GET/POST /api/ambulances, POST /api/ambulance/location
-  - GET /api/hospitals, GET /api/hospitals/nearby
-  - POST /api/route/request
-  - POST /api/alerts/send
-  - POST /api/assign-hospital
-  - GET /api/admin/users, /api/admin/audit-logs
-  - POST /api/simulation/seed
+- **Auth System**: JWT-based authentication with 2 roles (Admin, Driver)
+- **Models**: Users, Ambulances, Hospitals, Trips, TrafficEvents, Alerts
+- **WebSocket**: Real-time GPS updates and traffic clearing alerts
+- **Routing Engine**: Traffic-aware routing with primary + backup routes
+- **V2X API**: Endpoint for future traffic signal preemption integration
+
+### Key Endpoints:
+- `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`
+- `POST /api/ambulance/{id}/claim`, `POST /api/ambulance/{id}/release`
+- `POST /api/ambulance/{id}/emergency` - Toggle emergency mode + broadcast alerts
+- `POST /api/ambulance/location` - GPS location updates
+- `GET /api/hospitals/nearby` - Hospitals ranked by ETA
+- `POST /api/route/to-hospital/{id}` - Calculate route with backup
+- `POST /api/trip/start`, `POST /api/trip/end` - Trip management
+- `GET /api/trip/current`, `GET /api/trips/history`
+- `POST /api/alerts/send` - Traffic clearing alerts
+- `POST /api/v2x/signal-preemption` - Future V2X integration
+- `POST /api/admin/seed-data` - Seed sample data
 
 ### Frontend (React + Leaflet)
-- **Login Page**: Sign In / Register with role selection
-- **Driver Dashboard**: Emergency toggle, ambulance selection, nearby hospitals, route display
-- **Dispatcher Dashboard**: Live map with all ambulances/hospitals, assignment controls
-- **Admin Panel**: User management, fleet overview, hospital directory, audit logs, simulation mode
+- **Login Page**: Sign In / Register with Driver/Admin roles
+- **Driver Dashboard**:
+  - Live map with ambulance position and hospital markers
+  - Emergency Mode toggle with traffic alert broadcasting
+  - START TRIP / END TRIP buttons
+  - Ambulance claim/release
+  - Nearby hospitals ranked by ETA with specialties
+  - Route visualization with primary + backup routes
+  - Next turn instruction display
+  - Traffic warnings
+- **Admin Panel**: User management, fleet overview, hospital directory, trip logs
 
 ### Key Features Implemented
 1. ✅ Real-time GPS tracking simulation
-2. ✅ Emergency Mode with priority routing
-3. ✅ Live map with Leaflet (OpenStreetMap tiles)
-4. ✅ Hospital discovery with specialties and ETA
-5. ✅ Ambulance-to-hospital assignment
-6. ✅ WebSocket real-time updates
-7. ✅ Role-based access control
-8. ✅ Audit logging
-9. ✅ Simulation mode with sample data seeding
+2. ✅ Emergency Mode with traffic clearing alerts
+3. ✅ Traffic-aware routing with recalculation
+4. ✅ Primary + backup route options
+5. ✅ Hospital finder ranked by ETA
+6. ✅ Start/End Trip workflow
+7. ✅ Trip logging with GPS history
+8. ✅ WebSocket real-time updates
+9. ✅ V2X API endpoint (ready for integration)
+10. ✅ Traffic clearing alerts to civilian apps
 
 ## Next Tasks / Enhancements
 
 ### Phase 2 Features
-1. **Real Map API Integration**: Replace mock routing with Google Maps/Mapbox API when key is available
-2. **Push Notifications**: Integrate with Firebase or web push for driver/civilian alerts
-3. **Trip History Dashboard**: Detailed trip analytics and reports
-4. **Traffic Event Management**: Admin interface to add/manage traffic incidents
-5. **Hospital Availability Updates**: Real-time bed availability integration
-6. **V2X Traffic Signal Integration**: API endpoint for traffic signal preemption
+1. **Real Map API Integration**: Connect to Google Maps/Mapbox when API key available
+2. **Push Notifications**: Mobile push alerts for nearby vehicles
+3. **Civilian App**: App for nearby drivers to receive ambulance alerts
+4. **V2X Integration**: Connect to traffic management systems for signal preemption
+5. **Voice Navigation**: Audio turn-by-turn directions
+6. **Battery Optimization**: Efficient GPS polling modes
 
 ### Technical Improvements
 1. Add rate limiting for API endpoints
 2. Implement caching for hospital/route data
-3. Add comprehensive error handling and retry logic
-4. Set up database indexes for performance
+3. Add comprehensive error handling
+4. Set up database indexes
 5. Add unit and integration tests
-6. Configure TLS/HTTPS for production
-
-### UI Enhancements
-1. Mobile-responsive driver interface
-2. Dark/Light theme toggle
-3. Keyboard shortcuts for dispatcher
-4. Sound alerts for emergencies
-5. Route animation on map
 
 ## Test Credentials
 - Admin: admin@test.com / admin123
-- Dispatcher: dispatch@test.com / dispatch123
-- Driver: driver@test.com / driver123
+- Driver: driver2@test.com / driver123
 
 ## Tech Stack
 - Backend: FastAPI, MongoDB, WebSockets, JWT
 - Frontend: React, Leaflet, Tailwind CSS, Shadcn/UI
-- Maps: OpenStreetMap tiles (free), Mock routing engine
+- Maps: OpenStreetMap tiles, Mock traffic-aware routing engine
