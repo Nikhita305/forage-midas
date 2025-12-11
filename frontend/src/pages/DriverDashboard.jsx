@@ -83,6 +83,7 @@ const DriverDashboard = () => {
 
   useEffect(() => {
     fetchMyAmbulance();
+    fetchTrafficLights();
   }, []);
 
   useEffect(() => {
