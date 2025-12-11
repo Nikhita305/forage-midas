@@ -1,0 +1,134 @@
+{
+  "identity": {
+    "name": "E1",
+    "role": "Anti-AI Creative Designer",
+    "mission": "Create a 'Mission Control' aesthetic that blends Swiss precision with Cyberpunk utility.",
+    "principles": [
+      "Fusion: Swiss Grid + Tactical HUD",
+      "Emotion: Urgency & Trust",
+      "Content: Data is the hero",
+      "Contrast: High-vis neon on deep matte black"
+    ]
+  },
+  "theme": {
+    "mode": "dark",
+    "strategy": "The 'Control Room' Protocol. Default to Dark Mode for all dashboards to reduce eye strain and increase focus. Use high-contrast neon accents for critical data."
+  },
+  "typography": {
+    "primary_font": "IBM Plex Sans",
+    "secondary_font": "Chivo",
+    "mono_font": "JetBrains Mono",
+    "import_statement": "@import url('https://fonts.googleapis.com/css2?family=Chivo:wght@300;400;700;900&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');",
+    "usage": {
+      "headings": "font-family: 'Chivo', sans-serif; tracking-tight; font-weight: 700;",
+      "body": "font-family: 'IBM Plex Sans', sans-serif; leading-relaxed;",
+      "data_display": "font-family: 'JetBrains Mono', monospace; tracking-wide;"
+    }
+  },
+  "colors": {
+    "palette": {
+      "background": "#09090b",
+      "surface": "#18181b",
+      "surface_highlight": "#27272a",
+      "border": "#27272a",
+      "primary": "#ef4444",
+      "primary_foreground": "#ffffff",
+      "secondary": "#3b82f6",
+      "accent": "#eab308",
+      "success": "#22c55e",
+      "text_primary": "#f4f4f5",
+      "text_secondary": "#a1a1aa",
+      "text_muted": "#71717a"
+    },
+    "usage_rules": [
+      "Backgrounds: Always use #09090b (Zinc 950) for the main canvas.",
+      "Cards: Use #18181b (Zinc 900) with a 1px border of #27272a.",
+      "Primary Color (#ef4444): RESERVED for Emergency Actions, Critical Alerts, and 'Go' buttons.",
+      "Secondary Color (#3b82f6): Use for Navigation, Routes, and standard interactions.",
+      "Text: Never use pure white (#ffffff) for body text; use #f4f4f5."
+    ]
+  },
+  "layout": {
+    "grid_system": "The 'Bento' Grid (Mode B - Control Room)",
+    "spacing": {
+      "container_padding": "p-6 md:p-8 lg:p-12",
+      "gap": "gap-4 md:gap-6",
+      "internal_padding": "p-6"
+    },
+    "strategies": [
+      "Dispatcher Dashboard: 12-column grid. Map takes central 8 cols. Sidebars for 'Active Units' (Left) and 'Hospital Status' (Right).",
+      "Driver App: Single column, massive touch targets (min-height: 64px). Bottom sheet for route details.",
+      "Z-Index Hierarchy: Map (0) -> Overlays/HUD (10) -> Modals/Alerts (50)."
+    ]
+  },
+  "components": {
+    "strategy": "Hybrid: Shadcn for logic, Custom Tailwind for 'HUD' look.",
+    "styling_rules": [
+      "Border Radius: Small (rounded-md or rounded-sm). No pill shapes for the dashboard.",
+      "Shadows: Minimal. Use 'shadow-none' or 'shadow-sm'. Rely on borders for separation.",
+      "Glassmorphism: Use 'bg-black/80 backdrop-blur-md border-white/10' for floating map overlays."
+    ],
+    "specific_overrides": {
+      "Card": "bg-zinc-900 border-zinc-800 text-zinc-100",
+      "Button": "font-medium tracking-wide uppercase text-xs",
+      "Input": "bg-zinc-950 border-zinc-800 focus:ring-red-500/20"
+    }
+  },
+  "visual_enhancers": {
+    "textures": "Add a subtle noise texture to the background (opacity 0.03) to reduce digital flatness.",
+    "decorations": [
+      "Scanlines: Overlay on map views for 'Tactical' feel.",
+      "Blinking Dots: Use for live status indicators (Green = Online, Red = Emergency)."
+    ],
+    "icons": "Lucide React (default). Use 'ShieldAlert' for emergencies, 'Activity' for status."
+  },
+  "images": {
+    "login_hero": {
+      "url": "https://images.unsplash.com/photo-1762805080882-84c2d3855963?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzh8MHwxfHNlYXJjaHwxfHxhbWJ1bGFuY2UlMjBlbWVyZ2VuY3klMjBsaWdodHMlMjBuaWdodHxlbnwwfHx8fDE3NjU0NTQ5MDB8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Ambulance with flashing lights at night",
+      "usage": "Full screen background for Login/Landing with heavy dark overlay (bg-black/80)."
+    },
+    "hospital_default": {
+      "url": "https://images.unsplash.com/photo-1764885518098-781b23d50e7f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NjZ8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBob3NwaXRhbCUyMGJ1aWxkaW5nJTIwZXh0ZXJpb3J8ZW58MHx8fHwxNzY1NDU0OTAyfDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Modern hospital building",
+      "usage": "Thumbnail for hospital list items or modal headers."
+    },
+    "map_context": {
+      "url": "https://images.unsplash.com/photo-1616927817303-1f6d5ef2614c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzZ8MHwxfHNlYXJjaHwxfHx0cmFmZmljJTIwY2l0eSUyMG5pZ2h0JTIwYWVyaWFsfGVufDB8fHx8MTc2NTQ1NDkwM3ww&ixlib=rb-4.1.0&q=85",
+      "alt": "City traffic aerial night",
+      "usage": "Background for 'Traffic Analysis' section or simulation mode."
+    }
+  },
+  "motion": {
+    "rules": [
+      "Duration: Fast (150ms - 200ms). Emergency tools must feel instant.",
+      "Easing: 'ease-out' for entrances, 'ease-in' for exits.",
+      "Reduced Motion: Respect user preference."
+    ],
+    "specifics": {
+      "alerts": "Pulse animation (animate-pulse) for active emergencies.",
+      "route_update": "Smooth transition for path lines."
+    }
+  },
+  "accessibility": {
+    "rules": [
+      "Contrast: Ensure text on red/blue backgrounds is white/bold.",
+      "Focus Rings: High visibility (ring-2 ring-white) for keyboard navigation.",
+      "Screen Readers: All map icons must have 'aria-label'."
+    ]
+  },
+  "instructions_to_main_agent": [
+    "1. INSTALL FONTS: Add the Google Fonts import to index.css immediately.",
+    "2. CONFIGURE TAILWIND: Update tailwind.config.js with the 'Zinc' color palette and 'Chivo'/'IBM Plex Sans' font families.",
+    "3. BUILD LAYOUTS: Start with the Dispatcher Dashboard using the 'Bento' grid. It is the core of the system.",
+    "4. MAP INTEGRATION: Use a placeholder 'div' with the 'map_context' image as a background if the real map API is not ready, but style the overlays (HUD) as if it were live.",
+    "5. USE SHADCN: Heavily customize the Shadcn components to match the 'Zinc 950' dark theme. Do not use the default white styles.",
+    "6. DATA-TESTID: Add data-testid to every interactive element (e.g., 'emergency-toggle-btn', 'assign-ambulance-btn')."
+  ],
+  "universal_guidelines": [
+    "Avoid 'AI Slop': Do not use generic gradients or centered text layouts.",
+    "Micro-Interactions: Every button must have a hover state (brightness-110 or border color change).",
+    "Spacing: Use p-6 or p-8 for internal card padding. Don't cram text.",
+    "Toasts: Use 'sonner' for all notifications."
+  ]
+}
