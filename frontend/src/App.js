@@ -5,7 +5,6 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { WebSocketProvider } from "./context/WebSocketContext";
 import Login from "./pages/Login";
 import DriverDashboard from "./pages/DriverDashboard";
-import DispatcherDashboard from "./pages/DispatcherDashboard";
 import AdminPanel from "./pages/AdminPanel";
 
 // Protected Route Component
@@ -26,15 +25,10 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     // Redirect to appropriate dashboard based on role
-    switch (user.role) {
-      case 'admin':
-        return <Navigate to="/admin" replace />;
-      case 'dispatcher':
-        return <Navigate to="/dispatcher" replace />;
-      case 'driver':
-      default:
-        return <Navigate to="/driver" replace />;
+    if (user.role === 'admin') {
+      return <Navigate to="/admin" replace />;
     }
+    return <Navigate to="/driver" replace />;
   }
   
   return <WebSocketProvider>{children}</WebSocketProvider>;
@@ -53,15 +47,10 @@ const PublicRoute = ({ children }) => {
   }
   
   if (user) {
-    switch (user.role) {
-      case 'admin':
-        return <Navigate to="/admin" replace />;
-      case 'dispatcher':
-        return <Navigate to="/dispatcher" replace />;
-      case 'driver':
-      default:
-        return <Navigate to="/driver" replace />;
+    if (user.role === 'admin') {
+      return <Navigate to="/admin" replace />;
     }
+    return <Navigate to="/driver" replace />;
   }
   
   return children;
@@ -79,12 +68,6 @@ function AppRoutes() {
       <Route path="/driver" element={
         <ProtectedRoute allowedRoles={['driver']}>
           <DriverDashboard />
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/dispatcher" element={
-        <ProtectedRoute allowedRoles={['dispatcher', 'admin']}>
-          <DispatcherDashboard />
         </ProtectedRoute>
       } />
       

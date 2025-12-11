@@ -8,8 +8,8 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { 
-  Users, Shield, Activity, Ambulance, Hospital, Clock, 
-  Trash2, RefreshCw, LogOut, PlayCircle, Database, FileText
+  Users, Shield, Ambulance, Hospital, 
+  Trash2, RefreshCw, LogOut, PlayCircle, Database, Route, Clock
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
@@ -18,9 +18,9 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const AdminPanel = () => {
   const { user, logout } = useAuth();
   const [users, setUsers] = useState([]);
-  const [auditLogs, setAuditLogs] = useState([]);
   const [ambulances, setAmbulances] = useState([]);
   const [hospitals, setHospitals] = useState([]);
+  const [trips, setTrips] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -29,16 +29,16 @@ const AdminPanel = () => {
 
   const fetchData = async () => {
     try {
-      const [usersRes, logsRes, ambRes, hospRes] = await Promise.all([
+      const [usersRes, ambRes, hospRes, tripsRes] = await Promise.all([
         axios.get(`${API}/admin/users`),
-        axios.get(`${API}/admin/audit-logs`),
         axios.get(`${API}/ambulances`),
-        axios.get(`${API}/hospitals`)
+        axios.get(`${API}/hospitals`),
+        axios.get(`${API}/admin/trips`)
       ]);
       setUsers(usersRes.data);
-      setAuditLogs(logsRes.data);
       setAmbulances(ambRes.data);
       setHospitals(hospRes.data);
+      setTrips(tripsRes.data);
     } catch (error) {
       console.error('Failed to fetch data:', error);
       toast.error('Failed to load admin data');
@@ -46,7 +46,7 @@ const AdminPanel = () => {
   };
 
   const deleteUser = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    if (!window.confirm('Delete this user?')) return;
     
     try {
       await axios.delete(`${API}/admin/users/${userId}`);
@@ -57,10 +57,10 @@ const AdminPanel = () => {
     }
   };
 
-  const seedSimulationData = async () => {
+  const seedData = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.post(`${API}/simulation/seed`);
+      const response = await axios.post(`${API}/admin/seed-data`);
       toast.success(`Seeded ${response.data.hospitals} hospitals and ${response.data.ambulances} ambulances`);
       fetchData();
     } catch (error) {
@@ -73,10 +73,10 @@ const AdminPanel = () => {
   const stats = {
     totalUsers: users.length,
     drivers: users.filter(u => u.role === 'driver').length,
-    dispatchers: users.filter(u => u.role === 'dispatcher').length,
     admins: users.filter(u => u.role === 'admin').length,
     ambulances: ambulances.length,
     hospitals: hospitals.length,
+    activeTrips: trips.filter(t => t.status === 'active').length,
   };
 
   const formatDate = (dateStr) => {
@@ -146,20 +146,6 @@ const AdminPanel = () => {
           <Card className="bg-zinc-900 border-zinc-800">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded bg-purple-500/20 flex items-center justify-center">
-                  <Activity className="w-5 h-5 text-purple-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-zinc-100 data-value">{stats.dispatchers}</p>
-                  <p className="text-xs text-zinc-500">Dispatchers</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded bg-red-500/20 flex items-center justify-center">
                   <Shield className="w-5 h-5 text-red-500" />
                 </div>
@@ -198,22 +184,36 @@ const AdminPanel = () => {
               </div>
             </CardContent>
           </Card>
+          
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded bg-purple-500/20 flex items-center justify-center">
+                  <Route className="w-5 h-5 text-purple-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-zinc-100 data-value">{stats.activeTrips}</p>
+                  <p className="text-xs text-zinc-500">Active Trips</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Simulation Controls */}
+        {/* Seed Data */}
         <Card className="bg-zinc-900 border-zinc-800 mb-6">
           <CardHeader className="pb-3">
             <CardTitle className="text-zinc-100 flex items-center gap-2">
               <Database className="w-5 h-5 text-amber-500" />
-              Simulation Mode
+              Sample Data
             </CardTitle>
             <CardDescription className="text-zinc-500">
-              Seed the database with sample data for testing and demonstration
+              Seed the database with sample hospitals and ambulances
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button 
-              onClick={seedSimulationData}
+              onClick={seedData}
               disabled={isLoading}
               className="bg-amber-500 hover:bg-amber-600 text-black font-medium"
               data-testid="seed-data-btn"
@@ -239,9 +239,9 @@ const AdminPanel = () => {
               <Hospital className="w-4 h-4 mr-2" />
               Hospitals
             </TabsTrigger>
-            <TabsTrigger value="audit" data-testid="audit-tab">
-              <FileText className="w-4 h-4 mr-2" />
-              Audit Logs
+            <TabsTrigger value="trips" data-testid="trips-tab">
+              <Route className="w-4 h-4 mr-2" />
+              Trips
             </TabsTrigger>
           </TabsList>
 
@@ -345,7 +345,6 @@ const AdminPanel = () => {
                     <TableRow className="border-zinc-800 hover:bg-zinc-800/50">
                       <TableHead className="text-zinc-400">Name</TableHead>
                       <TableHead className="text-zinc-400">Specialties</TableHead>
-                      <TableHead className="text-zinc-400">Available Beds</TableHead>
                       <TableHead className="text-zinc-400">Phone</TableHead>
                       <TableHead className="text-zinc-400">Address</TableHead>
                     </TableRow>
@@ -363,7 +362,6 @@ const AdminPanel = () => {
                             ))}
                           </div>
                         </TableCell>
-                        <TableCell className="text-zinc-300 data-value">{hosp.availability}</TableCell>
                         <TableCell className="text-zinc-400 data-value">{hosp.phone}</TableCell>
                         <TableCell className="text-zinc-500 text-sm">{hosp.address || 'N/A'}</TableCell>
                       </TableRow>
@@ -374,34 +372,38 @@ const AdminPanel = () => {
             </Card>
           </TabsContent>
 
-          {/* Audit Logs Tab */}
-          <TabsContent value="audit">
+          {/* Trips Tab */}
+          <TabsContent value="trips">
             <Card className="bg-zinc-900 border-zinc-800">
               <CardHeader>
-                <CardTitle className="text-zinc-100">Audit Trail</CardTitle>
+                <CardTitle className="text-zinc-100">Trip Logs</CardTitle>
               </CardHeader>
               <CardContent>
                 <ScrollArea className="h-[400px]">
                   <Table>
                     <TableHeader>
                       <TableRow className="border-zinc-800 hover:bg-zinc-800/50">
-                        <TableHead className="text-zinc-400">Timestamp</TableHead>
-                        <TableHead className="text-zinc-400">Action</TableHead>
-                        <TableHead className="text-zinc-400">Details</TableHead>
-                        <TableHead className="text-zinc-400">User ID</TableHead>
+                        <TableHead className="text-zinc-400">Driver</TableHead>
+                        <TableHead className="text-zinc-400">Destination</TableHead>
+                        <TableHead className="text-zinc-400">Status</TableHead>
+                        <TableHead className="text-zinc-400">Traffic</TableHead>
+                        <TableHead className="text-zinc-400">Started</TableHead>
+                        <TableHead className="text-zinc-400">Completed</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {auditLogs.map(log => (
-                        <TableRow key={log.id} className="border-zinc-800 hover:bg-zinc-800/50">
-                          <TableCell className="text-zinc-500 text-sm data-value">{formatDate(log.timestamp)}</TableCell>
+                      {trips.map(trip => (
+                        <TableRow key={trip.id} className="border-zinc-800 hover:bg-zinc-800/50">
+                          <TableCell className="text-zinc-100">{trip.driver_name}</TableCell>
+                          <TableCell className="text-zinc-300">{trip.destination_hospital_name}</TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="text-xs border-zinc-700 text-zinc-300">
-                              {log.action}
+                            <Badge variant={trip.status === 'active' ? 'destructive' : 'secondary'} className="text-xs">
+                              {trip.status?.toUpperCase()}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-zinc-400 text-sm">{log.details}</TableCell>
-                          <TableCell className="text-zinc-500 text-xs data-value">{log.user_id?.slice(0, 8)}...</TableCell>
+                          <TableCell className="text-zinc-400">{trip.traffic_conditions}</TableCell>
+                          <TableCell className="text-zinc-500 text-sm data-value">{formatDate(trip.started_at)}</TableCell>
+                          <TableCell className="text-zinc-500 text-sm data-value">{formatDate(trip.completed_at)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

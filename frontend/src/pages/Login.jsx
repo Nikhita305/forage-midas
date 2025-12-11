@@ -7,7 +7,7 @@ import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Ambulance, ShieldAlert, Users, Radio } from 'lucide-react';
+import { Ambulance, ShieldAlert, Shield, Radio } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
 const Login = () => {
@@ -15,11 +15,9 @@ const Login = () => {
   const { login, register } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   
-  // Login form state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   
-  // Register form state
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regName, setRegName] = useState('');
@@ -54,17 +52,10 @@ const Login = () => {
   };
 
   const navigateByRole = (role) => {
-    switch (role) {
-      case 'admin':
-        navigate('/admin');
-        break;
-      case 'dispatcher':
-        navigate('/dispatcher');
-        break;
-      case 'driver':
-      default:
-        navigate('/driver');
-        break;
+    if (role === 'admin') {
+      navigate('/admin');
+    } else {
+      navigate('/driver');
     }
   };
 
@@ -82,9 +73,9 @@ const Login = () => {
             </div>
             <h1 className="text-3xl font-bold tracking-tight">EMRS</h1>
           </div>
-          <h2 className="text-4xl font-bold mb-4">Emergency Medical<br />Routing System</h2>
+          <h2 className="text-4xl font-bold mb-4">Smart Ambulance<br />Routing System</h2>
           <p className="text-zinc-400 text-lg max-w-md">
-            Real-time ambulance tracking, intelligent routing, and hospital coordination for faster emergency response.
+            Intelligent routing, real-time GPS tracking, and hospital finder for faster emergency response.
           </p>
           
           <div className="mt-12 grid grid-cols-2 gap-6">
@@ -93,8 +84,8 @@ const Login = () => {
                 <Radio className="w-5 h-5 text-blue-500" />
               </div>
               <div>
-                <h3 className="font-semibold text-zinc-100">Live Tracking</h3>
-                <p className="text-sm text-zinc-500">Real-time GPS updates</p>
+                <h3 className="font-semibold text-zinc-100">Live GPS</h3>
+                <p className="text-sm text-zinc-500">Real-time tracking</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -102,7 +93,7 @@ const Login = () => {
                 <ShieldAlert className="w-5 h-5 text-red-500" />
               </div>
               <div>
-                <h3 className="font-semibold text-zinc-100">Smart Routing</h3>
+                <h3 className="font-semibold text-zinc-100">Smart Routes</h3>
                 <p className="text-sm text-zinc-500">Traffic-aware paths</p>
               </div>
             </div>
@@ -180,7 +171,7 @@ const Login = () => {
                 <CardHeader>
                   <CardTitle className="text-zinc-100">Create account</CardTitle>
                   <CardDescription className="text-zinc-500">
-                    Register to join the emergency response network
+                    Join the emergency response network
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -240,15 +231,9 @@ const Login = () => {
                               <span>Driver</span>
                             </div>
                           </SelectItem>
-                          <SelectItem value="dispatcher" className="text-zinc-100">
-                            <div className="flex items-center gap-2">
-                              <Radio className="w-4 h-4" />
-                              <span>Dispatcher</span>
-                            </div>
-                          </SelectItem>
                           <SelectItem value="admin" className="text-zinc-100">
                             <div className="flex items-center gap-2">
-                              <Users className="w-4 h-4" />
+                              <Shield className="w-4 h-4" />
                               <span>Admin</span>
                             </div>
                           </SelectItem>
