@@ -247,10 +247,24 @@ class SmartAmbulanceAPITester:
 
     def test_alert_endpoints(self):
         """Test alert endpoints"""
-        if not self.token:
+        if not self.driver_token or not self.ambulance_id:
             return False
         
-        success, _ = self.run_test("Get Alerts", "GET", "alerts", 200, token=self.token)
+        # Test traffic alerts
+        success, _ = self.run_test("Get Traffic Alerts", "GET", "alerts/traffic", 200, token=self.driver_token)
+        
+        # Test manual alert
+        alert_data = {
+            "ambulance_id": self.ambulance_id,
+            "message": "Test manual alert",
+            "location": {"lat": 40.7128, "lng": -74.0060},
+            "eta_minutes": 5
+        }
+        success, _ = self.run_test("Send Manual Alert", "POST", "alerts/traffic", 200, alert_data, token=self.driver_token)
+        
+        # Test recent alerts
+        success, _ = self.run_test("Get Recent Alerts", "GET", "alerts/recent", 200)
+        
         return success
 
 def main():
