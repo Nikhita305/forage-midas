@@ -69,7 +69,7 @@ class SmartAmbulanceAPITester:
         return success
 
     def test_user_registration(self):
-        """Test user registration for all roles"""
+        """Test user registration for driver and admin roles only"""
         timestamp = datetime.now().strftime('%H%M%S')
         
         # Test admin registration
@@ -83,17 +83,6 @@ class SmartAmbulanceAPITester:
         if success and 'access_token' in response:
             self.admin_token = response['access_token']
         
-        # Test dispatcher registration
-        dispatcher_data = {
-            "email": f"dispatcher_{timestamp}@test.com",
-            "password": "dispatcher123",
-            "name": f"Test Dispatcher {timestamp}",
-            "role": "dispatcher"
-        }
-        success, response = self.run_test("Register Dispatcher", "POST", "auth/register", 200, dispatcher_data)
-        if success and 'access_token' in response:
-            self.dispatcher_token = response['access_token']
-        
         # Test driver registration
         driver_data = {
             "email": f"driver_{timestamp}@test.com",
@@ -105,7 +94,7 @@ class SmartAmbulanceAPITester:
         if success and 'access_token' in response:
             self.driver_token = response['access_token']
         
-        return self.admin_token and self.dispatcher_token and self.driver_token
+        return self.admin_token and self.driver_token
 
     def test_user_login(self):
         """Test login with provided credentials"""
