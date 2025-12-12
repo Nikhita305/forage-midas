@@ -317,12 +317,15 @@ async def send_traffic_alert(request: SendAlertRequest, current_user: dict = Dep
         {"$set": {"emergency_mode": True, "status": AmbulanceStatus.EMERGENCY.value}}
     )
     
-    # Broadcast to ALL logged-in traffic police via WebSocket
+    # Broadcast to ALL logged-in traffic police via WebSocket with full details
     recipients = await manager.send_alert_to_police({
         "alert_id": alert.id,
         "ambulance_id": alert.ambulance_id,
         "ambulance_call_sign": alert.ambulance_call_sign,
+        "vehicle_number": alert.vehicle_number,
+        "vehicle_type": alert.vehicle_type,
         "driver_name": alert.driver_name,
+        "driver_phone": alert.driver_phone,
         "location": {"lat": request.location.lat, "lng": request.location.lng},
         "speed": request.speed,
         "direction": alert.direction,
