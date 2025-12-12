@@ -289,12 +289,15 @@ async def send_traffic_alert(request: SendAlertRequest, current_user: dict = Dep
     # Calculate distance to nearest traffic point
     distance_to_traffic = calculate_distance_to_traffic_point(request.location)
     
-    # Create alert
+    # Create alert with full vehicle details
     alert = TrafficAlert(
         ambulance_id=request.ambulance_id,
         ambulance_call_sign=ambulance['call_sign'],
+        vehicle_number=ambulance.get('vehicle_number', 'N/A'),
+        vehicle_type=ambulance.get('vehicle_type', 'Unknown'),
         driver_id=current_user['sub'],
         driver_name=current_user['name'],
+        driver_phone=ambulance.get('driver_phone', 'N/A'),
         location=request.location,
         speed=request.speed,
         direction=get_direction_of_travel(request.speed),
