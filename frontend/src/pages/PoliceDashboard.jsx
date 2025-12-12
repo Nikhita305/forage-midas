@@ -69,10 +69,16 @@ const PoliceDashboard = () => {
       if (latestAlert && latestAlert.status === 'active') {
         playAlertSound();
         toast.error(
-          <div>
-            <strong>🚨 EMERGENCY ALERT</strong>
-            <p>{latestAlert.ambulance_call_sign} - {latestAlert.message}</p>
-            <p className="text-sm mt-1">Distance: {latestAlert.distance_to_traffic_point_m}m away</p>
+          <div className="space-y-1">
+            <strong className="text-base">🚨 EMERGENCY ALERT</strong>
+            <div className="font-semibold">{latestAlert.ambulance_call_sign}</div>
+            {latestAlert.vehicle_number && (
+              <div className="font-mono text-sm bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded inline-block">
+                {latestAlert.vehicle_number}
+              </div>
+            )}
+            <p className="text-sm">{latestAlert.driver_name}</p>
+            <p className="text-sm font-semibold mt-1">📍 {latestAlert.distance_to_traffic_point_m}m away</p>
           </div>,
           { duration: 10000 }
         );
