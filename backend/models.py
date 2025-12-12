@@ -119,8 +119,11 @@ class TrafficAlert(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     ambulance_id: str
     ambulance_call_sign: str
+    vehicle_number: str = ""
+    vehicle_type: str = ""
     driver_id: str
     driver_name: str
+    driver_phone: Optional[str] = None
     location: Coordinates
     speed: float = 0
     direction: str = ""
