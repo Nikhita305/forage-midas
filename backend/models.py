@@ -80,8 +80,11 @@ class Ambulance(BaseModel):
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     call_sign: str
+    vehicle_number: str = ""  # Registration/license plate number
+    vehicle_type: str = "Advanced Life Support"  # Type of ambulance
     driver_id: Optional[str] = None
     driver_name: Optional[str] = None
+    driver_phone: Optional[str] = None
     status: AmbulanceStatus = AmbulanceStatus.AVAILABLE
     location: Coordinates
     speed: float = 0
