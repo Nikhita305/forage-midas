@@ -282,33 +282,59 @@ const PoliceDashboard = () => {
                     data-testid={`alert-card-${alert.id || alert.alert_id}`}
                   >
                     <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Ambulance className="w-5 h-5 text-red-500" />
-                          <span className="font-semibold text-zinc-100">
-                            {alert.ambulance_call_sign}
-                          </span>
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Ambulance className="w-5 h-5 text-red-500" />
+                            <span className="font-bold text-zinc-100">
+                              {alert.ambulance_call_sign}
+                            </span>
+                          </div>
+                          {alert.vehicle_number && (
+                            <div className="font-mono text-sm font-semibold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded inline-block">
+                              {alert.vehicle_number}
+                            </div>
+                          )}
                         </div>
                         {getAlertStatusBadge(alert.status)}
                       </div>
                       
-                      <p className="text-sm text-zinc-400 mb-2">{alert.driver_name}</p>
+                      {/* Vehicle & Driver Details */}
+                      <div className="bg-zinc-900/50 rounded-lg p-3 mb-3 space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-zinc-500">Driver:</span>
+                          <span className="text-zinc-200 font-medium">{alert.driver_name}</span>
+                        </div>
+                        {alert.driver_phone && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-zinc-500">Contact:</span>
+                            <span className="text-blue-400 font-mono">{alert.driver_phone}</span>
+                          </div>
+                        )}
+                        {alert.vehicle_type && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-zinc-500">Type:</span>
+                            <span className="text-zinc-300">{alert.vehicle_type}</span>
+                          </div>
+                        )}
+                      </div>
                       
-                      <div className="space-y-1 text-xs">
-                        <div className="flex items-center gap-2 text-amber-400">
-                          <MapPin className="w-3 h-3" />
-                          <span className="font-medium">
+                      {/* Location & Status Info */}
+                      <div className="space-y-1.5 text-xs">
+                        <div className="flex items-center gap-2 text-amber-400 font-semibold">
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span>
                             {alert.distance_to_traffic_point_m || Math.round(alert.distance_to_traffic_point_km * 1000)}m away
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-zinc-500">
+                        <div className="flex items-center gap-2 text-zinc-400">
                           <Clock className="w-3 h-3" />
                           <span>{formatTime(alert.created_at)}</span>
                         </div>
                         {alert.speed > 0 && (
-                          <div className="flex items-center gap-2 text-zinc-500">
+                          <div className="flex items-center gap-2 text-zinc-400">
                             <Navigation className="w-3 h-3" />
-                            <span>{Math.round(alert.speed)} km/h - {alert.direction}</span>
+                            <span>{Math.round(alert.speed)} km/h • {alert.direction}</span>
                           </div>
                         )}
                       </div>
