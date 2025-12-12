@@ -315,7 +315,13 @@ const DriverDashboard = () => {
             <h1 className="text-lg font-bold text-zinc-100">
               {myAmbulance ? myAmbulance.call_sign : 'Ambulance Driver'}
             </h1>
-            <p className="text-xs text-zinc-500">{user?.name}</p>
+            <p className="text-xs text-zinc-400">
+              {myAmbulance?.vehicle_number && (
+                <span className="font-mono font-semibold">{myAmbulance.vehicle_number}</span>
+              )}
+              {myAmbulance?.vehicle_number && ' • '}
+              {user?.name}
+            </p>
           </div>
         </div>
         
