@@ -710,20 +710,39 @@ const DriverDashboard = () => {
               Choose an available ambulance to begin
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 mt-4">
+          <div className="space-y-3 mt-4">
             {availableAmbulances.length > 0 ? (
               availableAmbulances.map(amb => (
-                <Button
+                <div
                   key={amb.id}
-                  variant="outline"
-                  className="w-full justify-start bg-zinc-800 border-zinc-700 text-zinc-100 hover:bg-zinc-700"
+                  className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 hover:bg-zinc-750 hover:border-zinc-600 cursor-pointer transition-all"
                   onClick={() => claimAmbulance(amb.id)}
                   data-testid={`claim-ambulance-${amb.call_sign}`}
                 >
-                  <Ambulance className="w-4 h-4 mr-3 text-red-400" />
-                  {amb.call_sign}
-                  <span className="ml-auto text-xs text-zinc-500">Available</span>
-                </Button>
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center">
+                        <Ambulance className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-zinc-100">{amb.call_sign}</div>
+                        {amb.vehicle_number && (
+                          <div className="font-mono text-sm text-blue-400 mt-0.5">
+                            {amb.vehicle_number}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Badge className="bg-green-500/20 text-green-400 border-green-500/50">
+                      Available
+                    </Badge>
+                  </div>
+                  {amb.vehicle_type && (
+                    <p className="text-xs text-zinc-400 mt-2">
+                      Type: {amb.vehicle_type}
+                    </p>
+                  )}
+                </div>
               ))
             ) : (
               <p className="text-zinc-500 text-center py-4">No ambulances available</p>
